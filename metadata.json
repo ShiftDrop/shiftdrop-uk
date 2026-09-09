@@ -1,0 +1,6 @@
+{
+  "name": "ShiftDrop",
+  "description": "The ultimate cross-platform in-cab HUD, parcel spatial load-in organiser, UK HMRC AMAP tax engine, and delivery management workstation for professional couriers.",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
