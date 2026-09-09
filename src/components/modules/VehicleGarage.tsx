@@ -38,11 +38,11 @@ interface VehicleGarageProps {
 }
 
 export const VehicleGarage: React.FC<VehicleGarageProps> = ({
-  vehicles,
+  vehicles = [],
   onAddVehicle,
   onUpdateTyres,
   onAddExpense,
-  fuelExpenses,
+  fuelExpenses = [],
 }) => {
   const [activeVehicleId, setActiveVehicleId] = useState<string>(
     vehicles[0]?.id || 'veh-01'
@@ -150,7 +150,8 @@ export const VehicleGarage: React.FC<VehicleGarageProps> = ({
   };
 
   // Calculate days until MOT
-  const getDaysUntil = (dateStr: string) => {
+  const getDaysUntil = (dateStr?: string) => {
+    if (!dateStr) return 0;
     const target = new Date(dateStr).getTime();
     const now = Date.now();
     return Math.ceil((target - now) / (1000 * 60 * 60 * 24));
@@ -250,35 +251,40 @@ export const VehicleGarage: React.FC<VehicleGarageProps> = ({
 
       {/* Vehicle Selection Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {vehicles.map((v) => (
-          <button
-            key={v.id}
-            id={`tab-vehicle-${v.regPlate.toLowerCase().replace(/\s+/g, '')}`}
-            onClick={() => {
-              setActiveVehicleId(v.id);
-              triggerHapticFeedback('light');
-            }}
-            className={`px-4 py-3 rounded-2xl border text-left shrink-0 transition-all font-mono text-xs ${
-              activeVehicleId === v.id
-                ? 'bg-surface border-brand-cyan text-primary shadow-lg'
-                : 'bg-inset border-subtle text-secondary hover:text-primary'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-black text-sm text-brand-cyan bg-canvas px-2 py-0.5 rounded border border-subtle">
-                {v.regPlate}
-              </span>
-              {v.fuelType === 'Full Electric (EV)' ? (
-                <Zap className="w-3.5 h-3.5 text-brand-emerald" />
-              ) : (
-                <Fuel className="w-3.5 h-3.5 text-amber-400" />
-              )}
-            </div>
-            <p className="font-sans text-[11px] text-primary mt-1 truncate max-w-50">
-              {v.makeModel}
-            </p>
-          </button>
-        ))}
+        {vehicles.map((v) => {
+          const safeReg = v?.regPlate || 'VEHICLE';
+          return (
+            <button
+              key={v?.id || Math.random()}
+              id={`tab-vehicle-${safeReg.toLowerCase().replace(/\s+/g, '')}`}
+              onClick={() => {
+                if (v?.id) {
+                  setActiveVehicleId(v.id);
+                  triggerHapticFeedback('light');
+                }
+              }}
+              className={`px-4 py-3 rounded-2xl border text-left shrink-0 transition-all font-mono text-xs ${
+                activeVehicleId === v?.id
+                  ? 'bg-surface border-brand-cyan text-primary shadow-lg'
+                  : 'bg-inset border-subtle text-secondary hover:text-primary'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm text-brand-cyan bg-canvas px-2 py-0.5 rounded border border-subtle">
+                  {safeReg}
+                </span>
+                {v?.fuelType === 'Full Electric (EV)' ? (
+                  <Zap className="w-3.5 h-3.5 text-brand-emerald" />
+                ) : (
+                  <Fuel className="w-3.5 h-3.5 text-amber-400" />
+                )}
+              </div>
+              <p className="font-sans text-[11px] text-primary mt-1 truncate max-w-50">
+                {v?.makeModel || 'Registered Vehicle'}
+              </p>
+            </button>
+          );
+        })}
       </div>
 
       {selectedVehicle && (
@@ -446,12 +452,12 @@ export const VehicleGarage: React.FC<VehicleGarageProps> = ({
                     </span>
                   </div>
                   <span className="text-[11px] text-secondary">
-                    {exp.date} • {exp.litresOrKWh} {exp.fuelType === 'Full Electric (EV)' ? 'kWh' : 'Litres'} @ £{exp.unitPriceGbp.toFixed(3)}
+                    {exp.date} • {exp.litresOrKWh} {exp.fuelType === 'Full Electric (EV)' ? 'kWh' : 'Litres'} @ £{exp.unitPriceGbp?.toFixed(3) || '0.000'}
                   </span>
                 </div>
                 <div className="text-right">
                   <span className="text-sm font-bold text-brand-emerald">
-                    £{exp.totalCostGbp.toFixed(2)}
+                    £{exp.totalCostGbp?.toFixed(2) || '0.00'}
                   </span>
                   <span className="text-[10px] text-secondary block">
                     Odo: {exp.odometerReading} mi
