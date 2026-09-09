@@ -155,16 +155,6 @@ export default function App() {
     loadWeather();
   }, []);
 
-  // Temporary Seeding Trigger (Run once, then delete this block)
-  useEffect(() => {
-    async function runSeed() {
-      const { seedSupabaseDatabaseWithSampleData } = await import('./services/db');
-      const res = await seedSupabaseDatabaseWithSampleData();
-      console.log('Database Seed Result:', res);
-    }
-    runSeed();
-  }, []);
-
   // Load from Supabase Cloud Database
   useEffect(() => {
     async function initFromSupabase() {
