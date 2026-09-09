@@ -48,15 +48,25 @@ import { fetchUkWeatherTelemetry, triggerHapticFeedback, speakUkVoicePrompt } fr
 import { onSupabaseAuthStateChange, getSupabaseClient } from './services/supabase';
 
 export default function App() {
-  // Navigation & Layout (Defaults to 'auth' if no profile is saved)
+  // Navigation & Layout (Remembers last active module, defaults to 'hub' or 'auth')
   const [activeModule, setActiveModule] = useState<ActiveModuleId>(() => {
     try {
-      const saved = localStorage.getItem('shiftDrop_driver_profile');
-      return saved ? 'hub' : 'auth';
+      const savedProfile = localStorage.getItem('shiftDrop_driver_profile');
+      if (!savedProfile) return 'auth';
+      const lastModule = localStorage.getItem('shiftDrop_active_module');
+      return (lastModule as ActiveModuleId) || 'hub';
     } catch (e) {
       return 'auth';
     }
   });
+
+  // Save active module to local storage whenever it changes
+  useEffect(() => {
+    if (activeModule && activeModule !== 'auth') {
+      localStorage.setItem('shiftDrop_active_module', activeModule);
+    }
+  }, [activeModule]);
+
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOpenMobileSidebar, setIsOpenMobileSidebar] = useState(false);
   const [isCollapsedDesktop, setIsCollapsedDesktop] = useState(false);
