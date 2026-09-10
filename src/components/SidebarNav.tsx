@@ -15,8 +15,8 @@ import {
   Activity,
   Key,
   Calculator,
+  Crown,
 } from 'lucide-react';
-import { Crown } from 'lucide-react';
 import { ActiveModuleId } from '../types';
 
 interface SidebarNavProps {
@@ -50,6 +50,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   isOpenMobileSidebar,
   onCloseMobileSidebar,
 }) => {
+  const proBadgeStyle = 'bg-amber-400/15 text-amber-400 border border-amber-400/30';
+
   const navItems: NavItem[] = [
     {
       id: 'hub',
@@ -86,8 +88,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'Doorstep Intel Vault',
       shortLabel: 'Doorstep Intel',
       icon: Key,
-      badge: 'UK',
-      badgeColor: 'bg-brand-cyan/20 text-brand-cyan border border-brand-cyan/40',
+      badge: 'PRO',
+      badgeColor: proBadgeStyle,
       category: 'Dispatch & Ops',
     },
     {
@@ -104,8 +106,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'Shift Profit Calculator',
       shortLabel: 'Profit Engine',
       icon: Calculator,
-      badge: 'PROFIT',
-      badgeColor: 'bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/40',
+      badge: 'PRO',
+      badgeColor: proBadgeStyle,
       category: 'Financial & Fleet',
     },
     {
@@ -113,6 +115,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'Pay Radar & Surge',
       shortLabel: 'Pay Radar',
       icon: Radar,
+      badge: 'PRO',
+      badgeColor: proBadgeStyle,
       category: 'Financial & Fleet',
     },
     {
@@ -127,6 +131,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'PCN Shield & Appeals',
       shortLabel: 'PCN Shield',
       icon: ShieldAlert,
+      badge: 'PRO',
+      badgeColor: proBadgeStyle,
       category: 'Financial & Fleet',
     },
     {
@@ -134,6 +140,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'HMRC Tax Vault',
       shortLabel: 'HMRC Vault',
       icon: FileSpreadsheet,
+      badge: 'PRO',
+      badgeColor: proBadgeStyle,
       category: 'Financial & Fleet',
     },
     {
@@ -149,9 +157,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       shortLabel: 'PRO',
       icon: Crown,
       category: 'System & Portal',
-      badge: 'NEW',
-      badgeColor: 'bg-brand-amber text-white border-brand-amber',
-    }
+      badge: 'UPGRADE',
+      badgeColor: 'bg-brand-cyan text-canvas font-black',
+    },
   ];
 
   return (
@@ -217,8 +225,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeModule === item.id;
-            
-            // On mobile/tablet, it's never collapsed
             const isItemCollapsed = isCollapsedDesktop;
 
             return (
@@ -243,7 +249,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 <div className="relative shrink-0 flex items-center justify-center">
                   <Icon className="w-5 h-5 lg:w-4 lg:h-4" />
                   {isItemCollapsed && item.badge && (
-                    <span className="hidden lg:flex absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full text-[9px] font-mono font-bold bg-brand-cyan text-canvas">
+                    <span className={`hidden lg:flex absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full text-[9px] font-mono font-bold ${
+                      item.badgeColor || 'bg-brand-cyan text-canvas'
+                    }`}>
                       {item.badge}
                     </span>
                   )}
@@ -262,12 +270,14 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                   )}
                 </div>
 
-                {/* Tooltip on collapsed desktop/tablet rail */}
+                {/* Tooltip on collapsed desktop rail */}
                 {isItemCollapsed && (
                   <div className="hidden lg:block fixed left-20 px-2.5 py-1.5 bg-surface text-primary text-xs rounded-lg shadow-2xl border border-subtle whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 font-sans">
                     {item.label}
                     {item.badge && (
-                      <span className="ml-1.5 px-1 py-0.5 rounded bg-brand-cyan text-canvas font-bold text-[10px]">
+                      <span className={`ml-1.5 px-1 py-0.5 rounded font-bold text-[10px] ${
+                        item.badgeColor || 'bg-brand-cyan text-canvas'
+                      }`}>
                         {item.badge}
                       </span>
                     )}
