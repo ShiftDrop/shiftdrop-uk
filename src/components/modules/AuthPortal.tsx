@@ -124,12 +124,20 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           return;
         }
 
-        if (profile) {
-          onUpdateUserProfile(profile);
-          triggerHapticFeedback('success');
-          speakUkVoicePrompt(`Account created for ${profile.fullName}. ShiftDrop courier session active.`);
-          onContinueToHub();
-        }
+        // Clear any active session tokens generated during signup
+        try {
+          await supabaseSignOut();
+        } catch (err) {}
+
+        // Switch to login tab and instruct user to verify email
+        setAuthMode('login');
+        setIsLoading(false);
+        setMessage({
+          text: 'Account created! Please check your email and verify your address before signing in.',
+          type: 'success',
+        });
+        triggerHapticFeedback('success');
+        speakUkVoicePrompt('Account created. Please verify your email before logging in.');
       } else {
         setMessage({ text: 'Magic link sent to your email!', type: 'success' });
         setIsLoading(false);

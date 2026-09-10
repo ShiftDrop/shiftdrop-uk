@@ -47,6 +47,9 @@ import { calculateHMRCTaxMetrics } from './services/hmrc';
 import { fetchUkWeatherTelemetry, triggerHapticFeedback, speakUkVoicePrompt } from './services/telemetry';
 import { onSupabaseAuthStateChange, getSupabaseClient } from './services/supabase';
 
+// Define which modules require a Pro subscription
+const PRO_ONLY_MODULES: ActiveModuleId[] = ['hmrc', 'radar', 'calculator'];
+
 export default function App() {
   // Navigation & Layout (Remembers last active module, defaults to 'hub' or 'auth')
   const [activeModule, setActiveModule] = useState<ActiveModuleId>(() => {
@@ -98,6 +101,28 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Centralized Navigation Handler with Feature Gating
+  const handleNavigateToModule = useCallback(
+    (mod: ActiveModuleId) => {
+      const isProModule = PRO_ONLY_MODULES.includes(mod);
+      const userTier = userProfile?.subscriptionTier || 'free';
+
+      if (isProModule && userTier !== 'pro') {
+        // Redirect free-tier users trying to access Pro features to the upgrade screen
+        setActiveModule('pro');
+        setActivePortal(null);
+      } else {
+        setActiveModule(mod);
+        if (mod === 'landing' || mod === 'studio') {
+          setActivePortal(mod as 'landing' | 'studio');
+        } else {
+          setActivePortal(null);
+        }
+      }
+    },
+    [userProfile]
+  );
 
   // Live Weather Telemetry
   const [weather, setWeather] = useState<WeatherTelemetry | null>(null);
@@ -449,8 +474,8 @@ export default function App() {
         onOpenShare={() => setIsShareOpen(true)}
         onOpenPortal={(portal) => {
           setActivePortal(portal);
-          if (portal === 'landing') setActiveModule('landing');
-          else if (portal === 'studio') setActiveModule('studio');
+          if (portal === 'landing') handleNavigateToModule('landing');
+          else if (portal === 'studio') handleNavigateToModule('studio');
         }}
         activePortal={activePortal}
         userProfile={userProfile}
@@ -471,14 +496,7 @@ export default function App() {
         {/* Navigation Sidebar */}
         <SidebarNav
           activeModule={activeModule}
-          onSelectModule={(mod) => {
-            setActiveModule(mod);
-            if (mod === 'landing' || mod === 'studio') {
-              setActivePortal(mod);
-            } else {
-              setActivePortal(null);
-            }
-          }}
+          onSelectModule={handleNavigateToModule}
           isCollapsedDesktop={isCollapsedDesktop}
           onToggleCollapseDesktop={() => setIsCollapsedDesktop(!isCollapsedDesktop)}
           pendingDropsCount={pendingCount}
@@ -496,7 +514,7 @@ export default function App() {
               weather={weather}
               taxMetrics={taxMetrics}
               onStartShift={handleStartShift}
-              onNavigateTo={(mod) => setActiveModule(mod)}
+              onNavigateTo={handleNavigateToModule}
             />
           )}
 
@@ -506,7 +524,7 @@ export default function App() {
               taxMetrics={taxMetrics}
               settings={settings}
               doorstepIntelList={doorstepIntelList}
-              onNavigateToDoorstepVault={() => setActiveModule('doorstep')}
+              onNavigateToDoorstepVault={() => handleNavigateToModule('doorstep')}
               onConfirmDrop={handleConfirmDrop}
               onReturnDrop={handleReturnDrop}
               onSelectStop={() => {}}
@@ -550,7 +568,7 @@ export default function App() {
             <ShiftProfitCalculator
               onLaunchShiftFromCalculator={(network, rate, bonus) => {
                 handleStartShift(network, activeShift?.currentOdometer || 0, rate, bonus);
-                setActiveModule('hud');
+                handleNavigateToModule('hud');
               }}
             />
           )}
@@ -579,7 +597,7 @@ export default function App() {
           )}
 
           {activeModule === 'pro' && (
-            <ProUpgrade onUpgradeComplete={() => setActiveModule('hub')} />
+            <ProUpgrade onUpgradeComplete={() => handleNavigateToModule('hub')} />
           )}
           {activeModule === 'settings' && (
             <DriverSettings
@@ -594,7 +612,7 @@ export default function App() {
               initialPortal={activeModule === 'studio' ? 'studio' : 'landing'}
               onReturnToApp={() => {
                 setActivePortal(null);
-                setActiveModule('hub');
+                handleNavigateToModule('hub');
               }}
             />
           )}

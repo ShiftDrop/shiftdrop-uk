@@ -62,7 +62,6 @@ export interface DoorstepIntelItem {
   lastUpdated: string;
 }
 
-
 export type ParcelSize = 'Small Envelope' | 'Standard Box' | 'Large Parcel' | 'Heavy / XL Bulk';
 
 export type VanCompartmentZone =
@@ -240,6 +239,9 @@ export interface DriverAppSettings {
   isGeofencedAutoCheckInEnabled?: boolean;
 }
 
+export type SubscriptionTier = 'free' | 'pro';
+export type SubscriptionStatus = 'active' | 'inactive' | 'trialing' | 'cancelled';
+
 export interface UserSessionProfile {
   id: string;
   email: string;
@@ -249,4 +251,6 @@ export interface UserSessionProfile {
   phone: string;
   isDemoUser: boolean;
   avatarUrl?: string;
+  subscriptionTier?: SubscriptionTier;
+  subscriptionStatus?: SubscriptionStatus;
 }
