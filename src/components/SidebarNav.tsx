@@ -28,6 +28,7 @@ interface SidebarNavProps {
   returnsCount: number;
   isOpenMobileSidebar?: boolean;
   onCloseMobileSidebar?: () => void;
+  isProUser?: boolean;
 }
 
 interface NavItem {
@@ -49,10 +50,29 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   returnsCount,
   isOpenMobileSidebar,
   onCloseMobileSidebar,
+  isProUser = false,
 }) => {
   const proBadgeStyle = 'bg-amber-400/15 text-amber-400 border border-amber-400/30';
 
-  const navItems: NavItem[] = [
+  const PRO_MODULE_IDS: ActiveModuleId[] = [
+    'doorstep',
+    'calculator',
+    'radar',
+    'pcn',
+    'hmrc',
+  ];
+
+  const handleNavClick = (moduleId: ActiveModuleId) => {
+    // If it's a gated PRO module and user is NOT subscribed, route to 'pro' upgrade
+    if (PRO_MODULE_IDS.includes(moduleId) && !isProUser) {
+      onSelectModule('pro');
+    } else {
+      onSelectModule(moduleId);
+    }
+    if (onCloseMobileSidebar) onCloseMobileSidebar();
+  };
+
+  const rawNavItems: NavItem[] = [
     {
       id: 'hub',
       label: 'In-Cab Home Hub',
@@ -88,7 +108,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'Doorstep Intel Vault',
       shortLabel: 'Doorstep Intel',
       icon: Key,
-      badge: 'PRO',
+      badge: isProUser ? undefined : 'PRO',
       badgeColor: proBadgeStyle,
       category: 'Dispatch & Ops',
     },
@@ -106,7 +126,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'Shift Profit Calculator',
       shortLabel: 'Profit Engine',
       icon: Calculator,
-      badge: 'PRO',
+      badge: isProUser ? undefined : 'PRO',
       badgeColor: proBadgeStyle,
       category: 'Financial & Fleet',
     },
@@ -115,7 +135,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'Pay Radar & Surge',
       shortLabel: 'Pay Radar',
       icon: Radar,
-      badge: 'PRO',
+      badge: isProUser ? undefined : 'PRO',
       badgeColor: proBadgeStyle,
       category: 'Financial & Fleet',
     },
@@ -131,7 +151,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'PCN Shield & Appeals',
       shortLabel: 'PCN Shield',
       icon: ShieldAlert,
-      badge: 'PRO',
+      badge: isProUser ? undefined : 'PRO',
       badgeColor: proBadgeStyle,
       category: 'Financial & Fleet',
     },
@@ -140,7 +160,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       label: 'HMRC Tax Vault',
       shortLabel: 'HMRC Vault',
       icon: FileSpreadsheet,
-      badge: 'PRO',
+      badge: isProUser ? undefined : 'PRO',
       badgeColor: proBadgeStyle,
       category: 'Financial & Fleet',
     },
@@ -153,12 +173,14 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
     },
     {
       id: 'pro',
-      label: 'Upgrade to PRO',
+      label: isProUser ? 'ShiftDrop PRO' : 'Upgrade to PRO',
       shortLabel: 'PRO',
       icon: Crown,
       category: 'System & Portal',
-      badge: 'UPGRADE',
-      badgeColor: 'bg-brand-cyan text-canvas font-black',
+      badge: isProUser ? 'ACTIVE' : 'UPGRADE',
+      badgeColor: isProUser
+        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+        : 'bg-brand-cyan text-canvas font-black',
     },
   ];
 
@@ -222,7 +244,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
 
         {/* Navigation Item List */}
         <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1.5">
-          {navItems.map((item) => {
+          {rawNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeModule === item.id;
             const isItemCollapsed = isCollapsedDesktop;
@@ -231,10 +253,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
               <button
                 key={item.id}
                 id={`nav-item-${item.id}`}
-                onClick={() => {
-                  onSelectModule(item.id);
-                  if (onCloseMobileSidebar) onCloseMobileSidebar();
-                }}
+                onClick={() => handleNavClick(item.id)}
                 className={`flex items-center rounded-xl transition-all relative group ${
                   isItemCollapsed
                     ? 'lg:w-12 lg:h-12 lg:mx-auto lg:justify-center lg:p-0 w-full px-3 py-3 min-h-11 gap-3 text-left'

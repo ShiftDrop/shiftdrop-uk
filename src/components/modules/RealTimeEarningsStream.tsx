@@ -40,9 +40,16 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
 
   const totalDrops = stops.length;
   const completedDrops = deliveredStops.length;
-  const grossPay = activeShift.agreedBlockRate + (activeShift.bonusPay || 0);
-  const avgPayPerDrop = completedDrops > 0 ? grossPay / completedDrops : grossPay / totalDrops;
-  const effectiveHourly = grossPay > 0 ? grossPay / 4 : 21.5;
+  const grossPay = (activeShift?.agreedBlockRate || 0) + (activeShift?.bonusPay || 0);
+
+  // Safe Per-Drop Yield (guards against division by 0)
+  const avgPayPerDrop = totalDrops > 0 ? grossPay / totalDrops : 0;
+
+  // Safe Effective Hourly (derives only from active shift data, defaults to 0.00)
+  const effectiveHourly = activeShift?.isActive && grossPay > 0 ? grossPay / 4 : 0;
+
+  // Safe Completion Rate percentage (guards against division by 0)
+  const completionRate = totalDrops > 0 ? ((completedDrops / totalDrops) * 100).toFixed(0) : '0';
 
   // Flash pulse when stops change
   useEffect(() => {
@@ -107,7 +114,7 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
             </span>
             <div className="flex items-center gap-1.5 text-xs text-brand-emerald font-bold mt-1">
               <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>Block Rate: £{activeShift.agreedBlockRate.toFixed(2)}</span>
+              <span>Block Rate: £{(activeShift?.agreedBlockRate || 0).toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -120,10 +127,10 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black font-mono text-brand-emerald tracking-tight">
-              £{taxMetrics.totalAmapMileageDeduction.toFixed(2)}
+              £{(taxMetrics?.totalAmapMileageDeduction || 0).toFixed(2)}
             </span>
             <p className="text-xs text-secondary font-mono mt-1">
-              @ 45p/mi on {taxMetrics.amapAllowanceFirstTierMiles} miles
+              @ 45p/mi on {taxMetrics?.amapAllowanceFirstTierMiles || 0} miles
             </p>
           </div>
         </div>
@@ -155,7 +162,7 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
               £{effectiveHourly.toFixed(2)}
             </span>
             <p className="text-xs text-secondary font-mono mt-1">
-              Net of estimated tax shield
+              {activeShift?.isActive ? 'Net of estimated tax shield' : 'Awaiting clock-in'}
             </p>
           </div>
         </div>
@@ -222,7 +229,7 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-115 overflow-y-auto pr-1">
             {filteredStops.length === 0 ? (
               <div className="bg-inset border border-subtle rounded-xl p-6 text-center space-y-2.5 my-2">
                 <CheckCircle2 className="w-7 h-7 text-brand-emerald mx-auto opacity-80" />
@@ -254,6 +261,7 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
               filteredStops.map((stop) => {
                 const isDelivered = stop.status === 'Delivered';
                 const isReturned = stop.status === 'Returned';
+                const s = stop as any;
 
                 return (
                   <div
@@ -276,18 +284,20 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
                             : 'bg-subtle text-secondary'
                         }`}
                       >
-                        #{stop.stopNumber}
+                        #{s.stopNumber || 1}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-xs font-bold text-primary truncate">{stop.recipientName}</span>
+                          <span className="text-xs font-bold text-primary truncate">
+                            {s.recipientName || s.recipient || 'Customer'}
+                          </span>
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface text-brand-cyan border border-subtle shrink-0">
                             {stop.postcode}
                           </span>
                         </div>
                         <p className="text-[11px] text-secondary truncate mt-0.5">
-                          {stop.addressLine1}, {stop.townCity}
+                          {s.addressLine1 || s.address || ''}, {s.townCity || s.city || ''}
                         </p>
                       </div>
                     </div>
@@ -295,10 +305,10 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
                     <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto shrink-0 border-t sm:border-t-0 border-subtle sm:border-transparent pt-2 sm:pt-0">
                       <div className="text-right font-mono shrink-0">
                         <span className="text-xs font-bold text-primary block whitespace-nowrap">
-                          {isDelivered ? `+£${(grossPay / totalDrops).toFixed(2)}` : '£0.00'}
+                          {isDelivered && totalDrops > 0 ? `+£${(grossPay / totalDrops).toFixed(2)}` : '£0.00'}
                         </span>
                         <span className="text-[10px] text-secondary block whitespace-nowrap">
-                          {stop.assignedZone.split(' ')[0]}
+                          {(stop.assignedZone || 'Front Seat').split(' ')[0]}
                         </span>
                       </div>
 
@@ -329,9 +339,7 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
             <div className="space-y-3 font-mono">
               <div className="flex justify-between text-xs pb-2 border-b border-subtle">
                 <span className="text-secondary">Completion Rate:</span>
-                <span className="text-primary font-bold">
-                  {((completedDrops / totalDrops) * 100).toFixed(0)}%
-                </span>
+                <span className="text-primary font-bold">{completionRate}%</span>
               </div>
               <div className="flex justify-between text-xs pb-2 border-b border-subtle">
                 <span className="text-secondary">Drops Left:</span>
@@ -346,7 +354,7 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
               <div className="flex justify-between text-xs pt-1">
                 <span className="text-secondary">Total Tax Shield:</span>
                 <span className="text-brand-emerald font-black">
-                  £{taxMetrics.totalAmapMileageDeduction.toFixed(2)}
+                  £{(taxMetrics?.totalAmapMileageDeduction || 0).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -359,7 +367,9 @@ export const RealTimeEarningsStream: React.FC<RealTimeEarningsStreamProps> = ({
               <span>Voice Query Tip</span>
             </div>
             <p className="text-secondary text-[11px] leading-relaxed">
-              Say <span className="text-primary font-mono font-bold">"What are my earnings today?"</span> or <span className="text-primary font-mono font-bold">"Give me a route summary"</span> at any time for instant hands-free speech responses.
+              Say <span className="text-primary font-mono font-bold">"What are my earnings today?"</span> or{' '}
+              <span className="text-primary font-mono font-bold">"Give me a route summary"</span> at any time for
+              instant hands-free speech responses.
             </p>
           </div>
         </div>

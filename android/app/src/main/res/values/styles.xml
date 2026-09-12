@@ -14,11 +14,11 @@
         <item name="android:background">@null</item>
     </style>
 
-    <!-- Full-Screen Dark Cockpit Splash Theme -->
+    <!-- Clean, Seamless Splash Theme -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:windowBackground">#0B0D13</item>
-        <item name="windowSplashScreenBackground">#0B0D13</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="windowSplashScreenBackground">#000000</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

@@ -12,14 +12,12 @@ export function normalizeSupabaseUrl(rawUrl: string): string {
     url = 'https://' + url;
   }
   
-  // Handle cases where user ends with .supabase. or .supabase
   if (url.endsWith('.supabase.')) {
     url += 'co';
   } else if (url.endsWith('.supabase')) {
     url += '.co';
   }
   
-  // Remove trailing slashes
   url = url.replace(/\/+$/, '');
   return url;
 }
@@ -31,8 +29,16 @@ export function getSupabaseClient(url?: string, key?: string): SupabaseClient | 
   const envUrl = typeof window !== 'undefined' ? (import.meta.env.VITE_SUPABASE_URL || '') : '';
   const envKey = typeof window !== 'undefined' ? (import.meta.env.VITE_SUPABASE_ANON_KEY || '') : '';
 
-  const finalUrl = normalizeSupabaseUrl(url || envUrl || (typeof window !== 'undefined' ? localStorage.getItem('shiftdrop_supabase_url') : '') || '');
-  const finalKey = (key || envKey || (typeof window !== 'undefined' ? localStorage.getItem('shiftdrop_supabase_key') : '') || '').trim();
+  // Direct fallbacks for ShiftDrop Android / Capacitor builds
+  const FALLBACK_URL = 'https://quobnlitrvxoinptzqoz.supabase.co';
+  const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1b2JubGl0cnZ4b2lucHR6cW96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODMwNDksImV4cCI6MjEwNDI1OTA0OX0.lWSXYhaWKBWNh3f2BDEpdqETNP5o1p-fS0HEiTIdxKM';
+
+  const finalUrl = normalizeSupabaseUrl(
+    url || envUrl || (typeof window !== 'undefined' ? localStorage.getItem('shiftdrop_supabase_url') : '') || FALLBACK_URL
+  );
+  const finalKey = (
+    key || envKey || (typeof window !== 'undefined' ? localStorage.getItem('shiftdrop_supabase_key') : '') || FALLBACK_KEY
+  ).trim();
 
   if (!finalUrl || !finalKey) {
     return null;
@@ -94,7 +100,7 @@ export async function testSupabaseConnection(url: string, key: string): Promise<
   if (!normalized) {
     return {
       success: false,
-      message: 'Please enter your Supabase Project URL (e.g., https://your-project.supabase.co).',
+      message: 'Please enter your Supabase Project URL.',
       normalizedUrl: '',
     };
   }
@@ -107,7 +113,6 @@ export async function testSupabaseConnection(url: string, key: string): Promise<
     };
   }
 
-  // Basic format check
   try {
     new URL(normalized);
   } catch {
@@ -127,19 +132,17 @@ export async function testSupabaseConnection(url: string, key: string): Promise<
       },
     });
 
-    // Test ping auth service
     const { error } = await testClient.auth.getSession();
     const latency = Date.now() - startTime;
 
     if (error && error.message.toLowerCase().includes('apikey')) {
       return {
         success: false,
-        message: `Invalid API Key: ${error.message}. Please double-check your anon/public key from Supabase Project Settings > API.`,
+        message: `Invalid API Key: ${error.message}.`,
         normalizedUrl: normalized,
       };
     }
 
-    // Save active configuration
     saveSupabaseConfig(normalized, trimmedKey);
 
     return {
@@ -151,31 +154,20 @@ export async function testSupabaseConnection(url: string, key: string): Promise<
   } catch (err: any) {
     return {
       success: false,
-      message: `Could not reach Supabase: ${err?.message || 'Network error or invalid URL'}. Check that your project is running.`,
+      message: `Could not reach Supabase: ${err?.message || 'Network error'}`,
       normalizedUrl: normalized,
     };
   }
 }
 
 // --------------------------------------------------------------------
-// SUPABASE AUTHENTICATION (Free Tier)
+// SUPABASE AUTHENTICATION
 // --------------------------------------------------------------------
 
 export async function supabaseSignIn(email: string, password: string): Promise<{ profile: UserSessionProfile | null; error: string | null }> {
   const client = getSupabaseClient();
   if (!client) {
-    // If Supabase not connected yet, authenticate locally for seamless experience
-    const derivedName = email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const localProfile: UserSessionProfile = {
-      id: 'uk_user_' + Math.random().toString(36).substring(2, 9),
-      email: email.trim(),
-      fullName: derivedName || 'Courier Driver',
-      courierLicenceNumber: 'UK-HERMES-8829',
-      driverBadgeId: 'GB-COURIER-2026',
-      phone: '+44 7700 900077',
-      isDemoUser: false,
-    };
-    return { profile: localProfile, error: null };
+    return { profile: null, error: 'Database uninitialised. Please check your connection.' };
   }
 
   try {
@@ -189,11 +181,20 @@ export async function supabaseSignIn(email: string, password: string): Promise<{
     }
 
     if (data.user) {
+      if (!data.user.email_confirmed_at) {
+        await client.auth.signOut();
+        return {
+          profile: null,
+          error: 'Your email address has not been confirmed yet. Please verify your email before signing in.',
+        };
+      }
+
       const meta = data.user.user_metadata || {};
+      const derivedFullName = meta.full_name || meta.name || email.split('@')[0];
       const profile: UserSessionProfile = {
         id: data.user.id,
         email: data.user.email || email,
-        fullName: meta.full_name || meta.name || email.split('@')[0],
+        fullName: derivedFullName,
         courierLicenceNumber: meta.courier_licence_number || 'UK-HERMES-8829',
         driverBadgeId: meta.driver_badge_id || 'GB-COURIER-2026',
         phone: meta.phone || '+44 7700 900077',
@@ -219,35 +220,29 @@ export async function supabaseSignUp(
     phone?: string;
     avatarUrl?: string;
   }
-): Promise<{ profile: UserSessionProfile | null; error: string | null }> {
+): Promise<{ profile: UserSessionProfile | null; error: string | null; isAwaitingVerification?: boolean }> {
   const client = getSupabaseClient();
   if (!client) {
-    // Local offline sign-up
-    const localProfile: UserSessionProfile = {
-      id: 'uk_user_' + Math.random().toString(36).substring(2, 9),
-      email: email.trim(),
-      fullName: metadata.fullName.trim() || 'Courier Driver',
-      courierLicenceNumber: metadata.licenceNumber || 'UK-HERMES-8829',
-      driverBadgeId: metadata.badgeId || 'GB-COURIER-2026',
-      phone: metadata.phone || '+44 7700 900077',
-      isDemoUser: false,
-      avatarUrl: metadata.avatarUrl,
-    };
-    return { profile: localProfile, error: null };
+    return { profile: null, error: 'Database uninitialised.' };
   }
 
   try {
+    // Strictly route email verification to your live production domain
+    const redirectUrl = 'https://shiftdrop.co.uk/';
+
     const { data, error } = await client.auth.signUp({
       email: email.trim(),
       password: password,
       options: {
         data: {
           full_name: metadata.fullName,
+          name: metadata.fullName,
           courier_licence_number: metadata.licenceNumber,
           driver_badge_id: metadata.badgeId,
           phone: metadata.phone,
           avatar_url: metadata.avatarUrl,
         },
+        emailRedirectTo: redirectUrl,
       },
     });
 
@@ -255,36 +250,19 @@ export async function supabaseSignUp(
       return { profile: null, error: error.message };
     }
 
-    if (data.user) {
-      const profile: UserSessionProfile = {
-        id: data.user.id,
-        email: data.user.email || email,
-        fullName: metadata.fullName,
-        courierLicenceNumber: metadata.licenceNumber || 'UK-HERMES-8829',
-        driverBadgeId: metadata.badgeId || 'GB-COURIER-2026',
-        phone: metadata.phone || '+44 7700 900077',
-        isDemoUser: false,
-        avatarUrl: metadata.avatarUrl,
-      };
+    // Force sign out immediately so unconfirmed sessions cannot bypass verification
+    await client.auth.signOut();
 
-      // Also upsert to profiles table if it exists
-      try {
-        await client.from('profiles').upsert({
-          id: data.user.id,
-          full_name: metadata.fullName,
-          email: data.user.email,
-          courier_licence_number: metadata.licenceNumber,
-          driver_badge_id: metadata.badgeId,
-          phone: metadata.phone,
-        });
-      } catch (e) {
-        // Table might not be migrated yet, ignore
-      }
-
-      return { profile, error: null };
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('shiftDrop_driver_profile');
+      localStorage.removeItem('shiftDrop_active_module');
     }
 
-    return { profile: null, error: 'Registration succeeded. Please verify your email.' };
+    return {
+      profile: null,
+      error: null,
+      isAwaitingVerification: true,
+    };
   } catch (err: any) {
     return { profile: null, error: err.message || 'Supabase registration failed.' };
   }
@@ -302,7 +280,7 @@ export async function supabaseSignOut(): Promise<void> {
 export async function supabaseSignInWithOAuth(provider: 'google' | 'apple'): Promise<{ error: string | null }> {
   const client = getSupabaseClient();
   if (!client) {
-    return { error: 'Please connect your Supabase project in Settings to use Google/Apple OAuth, or use 1-Tap Driver Access.' };
+    return { error: 'Please connect your Supabase project in Settings to use OAuth.' };
   }
 
   try {
@@ -315,7 +293,7 @@ export async function supabaseSignInWithOAuth(provider: 'google' | 'apple'): Pro
     if (error) return { error: error.message };
     return { error: null };
   } catch (err: any) {
-    return { error: err.message || 'OAuth initialization failed' };
+    return { error: err.message || 'OAuth initialisation failed' };
   }
 }
 
@@ -323,13 +301,14 @@ export function onSupabaseAuthStateChange(callback: (profile: UserSessionProfile
   const client = getSupabaseClient();
   if (!client) return () => {};
 
-  const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
-    if (session?.user) {
+  const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+    if (session?.user && session.user.email_confirmed_at) {
       const meta = session.user.user_metadata || {};
+      const derivedFullName = meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Courier Driver';
       const profile: UserSessionProfile = {
         id: session.user.id,
         email: session.user.email || '',
-        fullName: meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Courier Driver',
+        fullName: derivedFullName,
         courierLicenceNumber: meta.courier_licence_number || 'UK-HERMES-8829',
         driverBadgeId: meta.driver_badge_id || 'GB-COURIER-2026',
         phone: meta.phone || '+44 7700 900077',
@@ -348,7 +327,7 @@ export function onSupabaseAuthStateChange(callback: (profile: UserSessionProfile
 }
 
 // --------------------------------------------------------------------
-// SUPABASE STORAGE (Receipts, Voice Notes, PCN Evidence)
+// STORAGE HANDLERS
 // --------------------------------------------------------------------
 
 export async function supabaseUploadReceipt(
@@ -364,7 +343,6 @@ export async function supabaseUploadReceipt(
     try {
       let uploadPayload: Blob | File;
       if (typeof file === 'string') {
-        // Convert dataURL to Blob
         const res = await fetch(file);
         uploadPayload = await res.blob();
       } else {
@@ -385,15 +363,11 @@ export async function supabaseUploadReceipt(
         return publicUrlData.publicUrl;
       }
     } catch (e) {
-      console.warn('Supabase storage upload failed, using local storage fallback', e);
+      console.warn('Storage upload failed', e);
     }
   }
 
-  // Fallback: return as local string or object URL
-  if (typeof file === 'string') {
-    return file;
-  }
-  return URL.createObjectURL(file);
+  return typeof file === 'string' ? file : URL.createObjectURL(file);
 }
 
 export async function supabaseUploadVoiceNote(
@@ -421,7 +395,7 @@ export async function supabaseUploadVoiceNote(
         return publicUrlData.publicUrl;
       }
     } catch (e) {
-      console.warn('Supabase voice note upload failed, using local fallback', e);
+      console.warn('Voice note upload failed', e);
     }
   }
 
@@ -461,14 +435,11 @@ export async function supabaseUploadEvidencePhoto(
         return publicUrlData.publicUrl;
       }
     } catch (e) {
-      console.warn('Supabase evidence upload failed, using local fallback', e);
+      console.warn('Evidence photo upload failed', e);
     }
   }
 
-  if (typeof photoData === 'string') {
-    return photoData;
-  }
-  return URL.createObjectURL(photoData);
+  return typeof photoData === 'string' ? photoData : URL.createObjectURL(photoData);
 }
 
 export async function seedSupabaseStorageBuckets(): Promise<{
@@ -479,58 +450,28 @@ export async function seedSupabaseStorageBuckets(): Promise<{
 }> {
   const client = getSupabaseClient();
   if (!client) {
-    return { success: false, uploadedCount: 0, files: [], error: 'Supabase client not initialized' };
+    return { success: false, uploadedCount: 0, files: [], error: 'Supabase client not initialised' };
   }
 
   const results: string[] = [];
   try {
-    // 1. Voice Note Sample
-    const voiceBlob = new Blob([
-      'UK Courier Audio Note: Gate code #1928 verified. Parcel left safe in enclosed porch at 11:42.'
-    ], { type: 'text/plain' });
+    const voiceBlob = new Blob(['UK Courier Audio Note: Gate verified.'], { type: 'text/plain' });
     const { data: vData, error: vErr } = await client.storage
       .from('drop-voice-notes')
-      .upload(`samples/voice_note_${Date.now()}.txt`, voiceBlob, {
-        upsert: true,
-        contentType: 'text/plain',
-      });
-    if (!vErr && vData) {
-      results.push('drop-voice-notes');
-    } else if (vErr) {
-      console.warn('drop-voice-notes upload error:', vErr);
-    }
+      .upload(`samples/voice_${Date.now()}.txt`, voiceBlob, { upsert: true });
+    if (!vErr && vData) results.push('drop-voice-notes');
 
-    // 2. Parking Evidence Sample
-    const pcnBlob = new Blob([
-      'PCN Loading Exemption Evidence: Clear commercial loading on yellow kerb blips. 20-minute delivery window.'
-    ], { type: 'text/plain' });
+    const pcnBlob = new Blob(['PCN Exemption Loading Window verified.'], { type: 'text/plain' });
     const { data: pData, error: pErr } = await client.storage
       .from('parking-evidence')
-      .upload(`samples/loading_evidence_${Date.now()}.txt`, pcnBlob, {
-        upsert: true,
-        contentType: 'text/plain',
-      });
-    if (!pErr && pData) {
-      results.push('parking-evidence');
-    } else if (pErr) {
-      console.warn('parking-evidence upload error:', pErr);
-    }
+      .upload(`samples/pcn_${Date.now()}.txt`, pcnBlob, { upsert: true });
+    if (!pErr && pData) results.push('parking-evidence');
 
-    // 3. Fuel Receipt Sample
-    const fuelBlob = new Blob([
-      'UK Fuel Receipt: BP Express Manchester, Diesel 44.2L @ £1.419/L. Total: £62.72. VAT No: GB243567891.'
-    ], { type: 'text/plain' });
+    const fuelBlob = new Blob(['Fuel receipt verified.'], { type: 'text/plain' });
     const { data: fData, error: fErr } = await client.storage
       .from('fuel-receipts')
-      .upload(`samples/fuel_receipt_${Date.now()}.txt`, fuelBlob, {
-        upsert: true,
-        contentType: 'text/plain',
-      });
-    if (!fErr && fData) {
-      results.push('fuel-receipts');
-    } else if (fErr) {
-      console.warn('fuel-receipts upload error:', fErr);
-    }
+      .upload(`samples/fuel_${Date.now()}.txt`, fuelBlob, { upsert: true });
+    if (!fErr && fData) results.push('fuel-receipts');
 
     return {
       success: results.length > 0,
@@ -538,12 +479,7 @@ export async function seedSupabaseStorageBuckets(): Promise<{
       files: results,
     };
   } catch (err: any) {
-    return {
-      success: false,
-      uploadedCount: results.length,
-      files: results,
-      error: err.message,
-    };
+    return { success: false, uploadedCount: 0, files: [], error: err.message };
   }
 }
 
@@ -557,6 +493,10 @@ export const DEMO_USER_PROFILE: UserSessionProfile = {
   isDemoUser: true,
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
 };
+
+// --------------------------------------------------------------------
+// SQL SCHEMA EXPORT (Required by DriverSettings.tsx)
+// --------------------------------------------------------------------
 
 export const SUPABASE_SQL_SCHEMA_WITH_RLS = `-- ====================================================================
 -- ShiftDrop UK Courier Suite - PostgreSQL Database & Storage Schema

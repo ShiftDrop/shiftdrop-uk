@@ -39,77 +39,215 @@ import { ShareWorkstationModal } from './components/ShareWorkstationModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AppSplashScreen } from './components/AppSplashScreen';
 import {
-  loadInitialDataFromSupabase,
   saveParcelStopsToSupabase,
   saveShiftToSupabase,
 } from './services/db';
 import { calculateHMRCTaxMetrics } from './services/hmrc';
 import { fetchUkWeatherTelemetry, triggerHapticFeedback, speakUkVoicePrompt } from './services/telemetry';
 import { onSupabaseAuthStateChange, getSupabaseClient } from './services/supabase';
+import { setupRevenueCat, checkProStatus } from './services/billing';
 
-// Define which modules require a Pro subscription
-const PRO_ONLY_MODULES: ActiveModuleId[] = ['hmrc', 'radar', 'calculator'];
+// Define all 5 modules that require a Pro subscription
+const PRO_ONLY_MODULES: ActiveModuleId[] = [
+  'doorstep',
+  'calculator',
+  'radar',
+  'pcn',
+  'hmrc',
+];
+
+// Helper to scope localStorage keys strictly to the active user
+const getScopedKey = (key: string, userId?: string) => {
+  return userId ? `shiftDrop_${userId}_${key}` : `shiftDrop_anon_${key}`;
+};
 
 export default function App() {
-  // Navigation & Layout (Remembers last active module, defaults to 'hub' or 'auth')
-  const [activeModule, setActiveModule] = useState<ActiveModuleId>(() => {
-    try {
-      const savedProfile = localStorage.getItem('shiftDrop_driver_profile');
-      if (!savedProfile) return 'auth';
-      const lastModule = localStorage.getItem('shiftDrop_active_module');
-      return (lastModule as ActiveModuleId) || 'hub';
-    } catch (e) {
-      return 'auth';
-    }
-  });
+  // Authentication Profile: starts strictly null to eliminate storage boot loops
+  const [userProfile, setUserProfile] = useState<UserSessionProfile | null>(null);
 
-  // Save active module to local storage whenever it changes
+  // Navigation & Layout: default strictly to auth
+  const [activeModule, setActiveModule] = useState<ActiveModuleId>('auth');
+
+  // Save active module to user-scoped storage
   useEffect(() => {
-    if (activeModule && activeModule !== 'auth') {
-      localStorage.setItem('shiftDrop_active_module', activeModule);
+    if (userProfile?.id && activeModule && activeModule !== 'auth' && activeModule !== 'pro') {
+      localStorage.setItem(getScopedKey('active_module', userProfile.id), activeModule);
     }
-  }, [activeModule]);
+  }, [activeModule, userProfile?.id]);
 
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isOpenMobileSidebar, setIsOpenMobileSidebar] = useState(false);
   const [isCollapsedDesktop, setIsCollapsedDesktop] = useState(false);
   const [activePortal, setActivePortal] = useState<'landing' | 'studio' | null>(null);
 
-  // Authentication Profile
-  const [userProfile, setUserProfile] = useState<UserSessionProfile | null>(() => {
-    try {
-      const saved = localStorage.getItem('shiftDrop_driver_profile');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
+  // Compute PRO status cleanly
+  const [isNativePro, setIsNativePro] = useState(false);
 
-  const handleUpdateUserProfile = (profile: UserSessionProfile | null) => {
-    setUserProfile(profile);
-    if (profile) {
-      localStorage.setItem('shiftDrop_driver_profile', JSON.stringify(profile));
+  const isProUser =
+    isNativePro ||
+    userProfile?.subscriptionTier === 'pro' ||
+    (userProfile as any)?.subscription_tier === 'pro' ||
+    (userProfile as any)?.is_pro === true ||
+    localStorage.getItem(getScopedKey('isPro', userProfile?.id)) === 'true';
+
+  // Workstation Data State
+  const [stops, setStops] = useState<ParcelStop[]>([]);
+  const [activeShift, setActiveShift] = useState<ActiveShift | null>(null);
+  const [shiftHistory, setShiftHistory] = useState<ActiveShift[]>([]);
+  const [vehicles, setVehicles] = useState<RegisteredVehicle[]>([]);
+  const [fuelExpenses, setFuelExpenses] = useState<FuelExpenseLog[]>([]);
+  const [parkingRecords, setParkingRecords] = useState<ParkingEvidence[]>([]);
+  const [doorstepIntelList, setDoorstepIntelList] = useState<DoorstepIntelItem[]>([]);
+
+  // User Profile Handler with Cache Isolation and Signout Sanitation
+  const handleUpdateUserProfile = useCallback((newProfile: UserSessionProfile | null) => {
+    const previousId = userProfile?.id;
+
+    if (newProfile) {
+      localStorage.setItem('shiftDrop_driver_profile', JSON.stringify(newProfile));
+
+      const userIntel = localStorage.getItem(getScopedKey('doorstep_intel', newProfile.id));
+      setDoorstepIntelList(userIntel ? JSON.parse(userIntel) : []);
+
+      const userModule = localStorage.getItem(getScopedKey('active_module', newProfile.id));
+      if (userModule && userModule !== 'auth' && userModule !== 'pro') {
+        setActiveModule(userModule as ActiveModuleId);
+      } else {
+        setActiveModule('hub');
+      }
     } else {
+      if (previousId) {
+        localStorage.removeItem(getScopedKey('doorstep_intel', previousId));
+        localStorage.removeItem(getScopedKey('active_module', previousId));
+        localStorage.removeItem(getScopedKey('isPro', previousId));
+      }
       localStorage.removeItem('shiftDrop_driver_profile');
-    }
-  };
+      localStorage.removeItem('shiftDrop_active_module');
+      localStorage.removeItem('shiftDrop_doorstep_intel');
+      localStorage.removeItem('shiftDrop_isPro');
 
+      setStops([]);
+      setActiveShift(null);
+      setShiftHistory([]);
+      setVehicles([]);
+      setFuelExpenses([]);
+      setParkingRecords([]);
+      setDoorstepIntelList([]);
+      setIsNativePro(false);
+      setActiveModule('auth');
+    }
+
+    setUserProfile(newProfile);
+  }, [userProfile?.id]);
+
+  // Session restoration & email confirmation token exchange
   useEffect(() => {
-    const unsubscribe = onSupabaseAuthStateChange((profile) => {
+    async function restoreSessionAndHandleVerification() {
+      const client = getSupabaseClient();
+      if (!client) return;
+
+      // Detect if arriving from an email confirmation link (#access_token=... or ?code=...)
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash;
+        const search = window.location.search;
+
+        if (hash.includes('access_token') || hash.includes('type=signup') || search.includes('code=')) {
+          const { data, error } = await client.auth.getSession();
+          if (!error && data.session?.user?.email_confirmed_at) {
+            window.history.replaceState(null, '', window.location.pathname);
+            triggerHapticFeedback('success');
+            speakUkVoicePrompt('Email address verified successfully. Welcome to ShiftDrop.');
+          }
+        }
+      }
+
+      // Validate current session state
+      const { data } = await client.auth.getSession();
+      if (data.session?.user && data.session.user.email_confirmed_at) {
+        const saved = localStorage.getItem('shiftDrop_driver_profile');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            setUserProfile(parsed);
+            const userModule = localStorage.getItem(getScopedKey('active_module', parsed.id));
+            setActiveModule((userModule as ActiveModuleId) || 'hub');
+          } catch (e) {}
+        }
+      } else {
+        setUserProfile(null);
+        setActiveModule('auth');
+      }
+    }
+    restoreSessionAndHandleVerification();
+  }, []);
+
+  // Handle Supabase auth state changes strictly for verified drivers
+  useEffect(() => {
+    const unsubscribe = onSupabaseAuthStateChange(async (profile) => {
       if (profile) {
+        const client = getSupabaseClient();
+        if (client) {
+          const { data } = await client.auth.getSession();
+          // Block unconfirmed sessions from logging into the workstation
+          if (data.session?.user && !data.session.user.email_confirmed_at) {
+            setUserProfile(null);
+            return;
+          }
+        }
+
         handleUpdateUserProfile(profile);
+        await setupRevenueCat(profile.id);
+        const hasNativePro = await checkProStatus();
+        if (hasNativePro) setIsNativePro(true);
+      } else {
+        setUserProfile(null);
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [handleUpdateUserProfile]);
 
-  // Centralized Navigation Handler with Feature Gating
+  // Re-verify RevenueCat entitlement if already authenticated on launch
+  useEffect(() => {
+    async function syncNativeBilling() {
+      if (userProfile?.id) {
+        await setupRevenueCat(userProfile.id);
+        const hasNativePro = await checkProStatus();
+        if (hasNativePro) setIsNativePro(true);
+      }
+    }
+    syncNativeBilling();
+  }, [userProfile?.id]);
+
+  // Handle Stripe redirect URL (?upgrade=success or ?upgrade=cancelled)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('upgrade') === 'success') {
+      if (userProfile?.id) {
+        localStorage.setItem(getScopedKey('isPro', userProfile.id), 'true');
+      }
+      localStorage.setItem('shiftDrop_isPro', 'true');
+      if (userProfile) {
+        handleUpdateUserProfile({
+          ...userProfile,
+          subscriptionTier: 'pro',
+        });
+      }
+      triggerHapticFeedback('success');
+      speakUkVoicePrompt('ShiftDrop PRO activated! All vaults unlocked.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setActiveModule('hub');
+    } else if (params.get('upgrade') === 'cancelled') {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setActiveModule('hub');
+    }
+  }, [userProfile, handleUpdateUserProfile]);
+
+  // Centralised Navigation Handler with Feature Gating
   const handleNavigateToModule = useCallback(
     (mod: ActiveModuleId) => {
       const isProModule = PRO_ONLY_MODULES.includes(mod);
-      const userTier = userProfile?.subscriptionTier || 'free';
 
-      if (isProModule && userTier !== 'pro') {
-        // Redirect free-tier users trying to access Pro features to the upgrade screen
+      if (isProModule && !isProUser) {
         setActiveModule('pro');
         setActivePortal(null);
       } else {
@@ -121,31 +259,18 @@ export default function App() {
         }
       }
     },
-    [userProfile]
+    [isProUser]
   );
 
   // Live Weather Telemetry
   const [weather, setWeather] = useState<WeatherTelemetry | null>(null);
 
-  // Core Shifts & Parcels (Initialized empty for production use)
-  const [stops, setStops] = useState<ParcelStop[]>([]);
-  const [activeShift, setActiveShift] = useState<ActiveShift | null>(null);
-  const [shiftHistory, setShiftHistory] = useState<ActiveShift[]>([]);
-  const [vehicles, setVehicles] = useState<RegisteredVehicle[]>([]);
-  const [fuelExpenses, setFuelExpenses] = useState<FuelExpenseLog[]>([]);
-  const [parkingRecords, setParkingRecords] = useState<ParkingEvidence[]>([]);
-  const [doorstepIntelList, setDoorstepIntelList] = useState<DoorstepIntelItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('shiftDrop_doorstep_intel');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [];
-  });
-
   const handleAddDoorstepIntel = (newItem: DoorstepIntelItem) => {
     setDoorstepIntelList((prev) => {
       const updated = [newItem, ...prev];
-      localStorage.setItem('shiftDrop_doorstep_intel', JSON.stringify(updated));
+      if (userProfile?.id) {
+        localStorage.setItem(getScopedKey('doorstep_intel', userProfile.id), JSON.stringify(updated));
+      }
       return updated;
     });
   };
@@ -155,16 +280,17 @@ export default function App() {
       const updated = prev.map((item) =>
         item.id === id ? { ...item, upvotes: item.upvotes + 1 } : item
       );
-      localStorage.setItem('shiftDrop_doorstep_intel', JSON.stringify(updated));
+      if (userProfile?.id) {
+        localStorage.setItem(getScopedKey('doorstep_intel', userProfile.id), JSON.stringify(updated));
+      }
       return updated;
     });
   };
 
-  // Settings & Share Modals
+  // Settings & Modals
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
-  // Only trigger the overlay splash screen if running natively on Android/iOS; skip entirely on web browsers
   const [showSplash, setShowSplash] = useState(() => Capacitor.isNativePlatform());
   const [settings, setSettings] = useState<DriverAppSettings>({
     isDarkMode: true,
@@ -190,32 +316,15 @@ export default function App() {
     loadWeather();
   }, []);
 
-  // Load from Supabase Cloud Database
+  // Fetch cloud data strictly for the logged-in courier
   useEffect(() => {
-    async function initFromSupabase() {
-      try {
-        const stored = await loadInitialDataFromSupabase();
-        if (stored.stops && stored.stops.length > 0) {
-          setStops(stored.stops);
-        }
-        if (stored.shifts && stored.shifts.length > 0) {
-          setShiftHistory(stored.shifts);
-          const active = stored.shifts.find((s) => s.isActive);
-          if (active) setActiveShift(active);
-        }
-        if (stored.vehicles && stored.vehicles.length > 0) {
-          setVehicles(stored.vehicles);
-        }
-      } catch (err) {
-        console.warn('Supabase initial load warning:', err);
-      }
+    if (!userProfile || !userProfile.id || userProfile.isDemoUser) {
+      setStops([]);
+      setActiveShift(null);
+      setShiftHistory([]);
+      setVehicles([]);
+      return;
     }
-    initFromSupabase();
-  }, []);
-
-  // Fetch live cloud data when userProfile becomes available
-  useEffect(() => {
-    if (!userProfile || !userProfile.id || userProfile.isDemoUser) return;
 
     const client = getSupabaseClient();
     if (!client) return;
@@ -231,7 +340,7 @@ export default function App() {
           .eq('courier_id', currentProfileId)
           .order('created_at', { ascending: false });
 
-        if (!shiftError && remoteShifts && remoteShifts.length > 0) {
+        if (!shiftError && remoteShifts) {
           const formattedShifts: ActiveShift[] = remoteShifts.map((s: any) => ({
             id: s.id,
             network: s.platform,
@@ -249,13 +358,15 @@ export default function App() {
           setShiftHistory(formattedShifts);
           const active = formattedShifts.find((sh) => sh.isActive);
           if (active) setActiveShift(active);
+          else setActiveShift(null);
         }
 
         const { data: remoteStops, error: stopError } = await client
           .from('parcel_stops')
-          .select('*');
+          .select('*')
+          .eq('user_id', currentProfileId);
 
-        if (!stopError && remoteStops && remoteStops.length > 0) {
+        if (!stopError && remoteStops) {
           const formattedStops: ParcelStop[] = remoteStops.map((p: any) => ({
             id: p.id,
             trackingNumber: p.tracking_number,
@@ -271,7 +382,7 @@ export default function App() {
           setStops(formattedStops);
         }
       } catch (err) {
-        console.warn('Could not load live cloud data, using clean local state:', err);
+        console.warn('Could not load live cloud data:', err);
       }
     }
 
@@ -280,13 +391,15 @@ export default function App() {
 
   // Save stops to Supabase on modification
   useEffect(() => {
-    saveParcelStopsToSupabase(stops).catch(() => {});
-  }, [stops]);
+    if (userProfile?.id && stops.length > 0) {
+      saveParcelStopsToSupabase(stops).catch(() => {});
+    }
+  }, [stops, userProfile?.id]);
 
   // Tax calculations
   const taxMetrics = calculateHMRCTaxMetrics(shiftHistory);
 
-  // Shift Management Handlers
+  // Shift Handlers
   const handleStartShift = useCallback(
     (network: CourierNetwork, startOdo: number, agreedRate: number, bonus: number) => {
       triggerHapticFeedback('success');
@@ -342,54 +455,45 @@ export default function App() {
     [activeShift]
   );
 
-  // Parcel Drop Handlers
-  const handleConfirmDrop = useCallback(
-    (stopId: string, voiceNoteUrl?: string) => {
-      triggerHapticFeedback('success');
-      setStops((prev) =>
-        prev.map((s) => {
-          if (s.id === stopId) {
-            return {
-              ...s,
-              status: 'Delivered' as const,
-              deliveryTimestamp: new Date().toISOString(),
-              voiceNoteUrl: voiceNoteUrl || s.voiceNoteUrl,
-            };
-          }
-          return s;
-        })
-      );
-    },
-    []
-  );
+  // Parcel Handlers
+  const handleConfirmDrop = useCallback((stopId: string, voiceNoteUrl?: string) => {
+    triggerHapticFeedback('success');
+    setStops((prev) =>
+      prev.map((s) => {
+        if (s.id === stopId) {
+          return {
+            ...s,
+            status: 'Delivered' as const,
+            deliveryTimestamp: new Date().toISOString(),
+            voiceNoteUrl: voiceNoteUrl || s.voiceNoteUrl,
+          };
+        }
+        return s;
+      })
+    );
+  }, []);
 
-  const handleReturnDrop = useCallback(
-    (stopId: string, reason: ReturnReasonCode) => {
-      triggerHapticFeedback('warning');
-      setStops((prev) =>
-        prev.map((s) => {
-          if (s.id === stopId) {
-            return {
-              ...s,
-              status: 'Returned' as const,
-              returnReason: reason,
-            };
-          }
-          return s;
-        })
-      );
-    },
-    []
-  );
+  const handleReturnDrop = useCallback((stopId: string, reason: ReturnReasonCode) => {
+    triggerHapticFeedback('warning');
+    setStops((prev) =>
+      prev.map((s) => {
+        if (s.id === stopId) {
+          return {
+            ...s,
+            status: 'Returned' as const,
+            returnReason: reason,
+          };
+        }
+        return s;
+      })
+    );
+  }, []);
 
-  const handleUpdateParcelZone = useCallback(
-    (stopId: string, zone: VanCompartmentZone) => {
-      setStops((prev) =>
-        prev.map((s) => (s.id === stopId ? { ...s, assignedZone: zone } : s))
-      );
-    },
-    []
-  );
+  const handleUpdateParcelZone = useCallback((stopId: string, zone: VanCompartmentZone) => {
+    setStops((prev) =>
+      prev.map((s) => (s.id === stopId ? { ...s, assignedZone: zone } : s))
+    );
+  }, []);
 
   const handleAddScannedParcel = useCallback((parcel: Partial<ParcelStop>) => {
     setStops((prev) => [parcel as ParcelStop, ...prev]);
@@ -426,7 +530,7 @@ export default function App() {
   const pendingCount = stops.filter((s) => s.status === 'Pending').length;
   const returnsCount = stops.filter((s) => s.status === 'Returned').length;
 
-  // Apply dark mode class to html element
+  // Dark Mode
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -435,10 +539,10 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // If user is on the auth module, render ONLY the login portal full-screen
-  if (activeModule === 'auth') {
+  // Auth Screen: Strictly gates unconfirmed or non-logged-in users
+  if (activeModule === 'auth' || !userProfile || !userProfile.id) {
     return (
-      <div className="min-h-screen flex flex-col bg-canvas text-primary">
+      <div className="min-h-screen flex flex-col bg-canvas text-primary font-sans">
         <main className="flex-1 flex items-center justify-center p-4">
           <AuthPortal
             userProfile={userProfile}
@@ -464,7 +568,6 @@ export default function App() {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      {/* Top Telemetry & Weather Header */}
       <Header
         isDarkMode={isDarkMode}
         onToggleTheme={() => setIsDarkMode(!isDarkMode)}
@@ -484,16 +587,13 @@ export default function App() {
         isVoiceActive={isVoiceOpen}
       />
 
-      {/* Active Shift Status Ribbon */}
       <ActiveShiftRibbon
         activeShift={activeShift}
         onEndShift={handleEndShift}
         onUpdateOdometer={handleUpdateOdometer}
       />
 
-      {/* Main Layout: Responsive Sidebar + Content Workspace */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Navigation Sidebar */}
         <SidebarNav
           activeModule={activeModule}
           onSelectModule={handleNavigateToModule}
@@ -503,9 +603,9 @@ export default function App() {
           returnsCount={returnsCount}
           isOpenMobileSidebar={isOpenMobileSidebar}
           onCloseMobileSidebar={() => setIsOpenMobileSidebar(false)}
+          isProUser={isProUser}
         />
 
-        {/* Dynamic Main Workspace Container */}
         <main className="flex-1 overflow-y-auto p-2 sm:p-4 pb-6 lg:pb-8">
           {activeModule === 'hub' && (
             <InCabHomeHub
@@ -515,6 +615,7 @@ export default function App() {
               taxMetrics={taxMetrics}
               onStartShift={handleStartShift}
               onNavigateTo={handleNavigateToModule}
+              isProUser={isProUser}
             />
           )}
 
@@ -534,7 +635,21 @@ export default function App() {
           {activeModule === 'realtime' && (
             <RealTimeEarningsStream
               stops={stops}
-              activeShift={activeShift || { id: '', network: 'Amazon Flex', startTime: '', startingOdometer: 0, currentOdometer: 0, agreedBlockRate: 0, bonusPay: 0, stops: [], isActive: false, notes: '', totalMilesDriven: 0 }}
+              activeShift={
+                activeShift || {
+                  id: '',
+                  network: 'Amazon Flex',
+                  startTime: '',
+                  startingOdometer: 0,
+                  currentOdometer: 0,
+                  agreedBlockRate: 0,
+                  bonusPay: 0,
+                  stops: [],
+                  isActive: false,
+                  notes: '',
+                  totalMilesDriven: 0,
+                }
+              }
               taxMetrics={taxMetrics}
               onConfirmDrop={handleConfirmDrop}
             />
@@ -597,8 +712,18 @@ export default function App() {
           )}
 
           {activeModule === 'pro' && (
-            <ProUpgrade onUpgradeComplete={() => handleNavigateToModule('hub')} />
+            <ProUpgrade
+              onUpgradeComplete={() => {
+                setIsNativePro(true);
+                if (userProfile?.id) {
+                  localStorage.setItem(getScopedKey('isPro', userProfile.id), 'true');
+                }
+                localStorage.setItem('shiftDrop_isPro', 'true');
+                handleNavigateToModule('hub');
+              }}
+            />
           )}
+
           {activeModule === 'settings' && (
             <DriverSettings
               settings={settings}
@@ -619,7 +744,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* Hands-Free UK Voice Assistant HUD */}
       <VoiceAssistantHUD
         isOpen={isVoiceOpen}
         onClose={() => setIsVoiceOpen(false)}
@@ -631,18 +755,29 @@ export default function App() {
         onEndShift={handleEndShift}
       />
 
-      {/* 1-Click Share & Preview Modal */}
       <ShareWorkstationModal
         isOpen={isShareOpen}
         onClose={() => setIsShareOpen(false)}
         stops={stops}
-        activeShift={activeShift || { id: '', network: 'Amazon Flex', startTime: '', startingOdometer: 0, currentOdometer: 0, agreedBlockRate: 0, bonusPay: 0, stops: [], isActive: false, notes: '', totalMilesDriven: 0 }}
+        activeShift={
+          activeShift || {
+            id: '',
+            network: 'Amazon Flex',
+            startTime: '',
+            startingOdometer: 0,
+            currentOdometer: 0,
+            agreedBlockRate: 0,
+            bonusPay: 0,
+            stops: [],
+            isActive: false,
+            notes: '',
+            totalMilesDriven: 0,
+          }
+        }
       />
 
-      {/* Offline Status Badge */}
       <OfflineIndicator />
 
-      {/* Driver Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
@@ -651,7 +786,6 @@ export default function App() {
         onSyncOfflineQueue={handleSyncOfflineQueue}
       />
 
-      {/* In-Cab Workstation Startup Splash Screen (Native Only) */}
       {showSplash && (
         <AppSplashScreen
           duration={1500}

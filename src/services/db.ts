@@ -8,44 +8,54 @@ import {
 } from '../types';
 
 // --------------------------------------------------------------------
-// LIVE SUPABASE DATA SERVICE (Zero Mock Data / Production Backend)
+// LIVE SUPABASE DATA SERVICE (Production Backend / User-Scoped)
 // --------------------------------------------------------------------
 
+/**
+ * Returns empty collections on initial boot.
+ * Real records are queried dynamically and scoped to the active courier ID in App.tsx.
+ */
 export async function loadInitialDataFromSupabase(): Promise<{
   stops: ParcelStop[];
   shifts: ActiveShift[];
   vehicles: RegisteredVehicle[];
 }> {
-  const client = getSupabaseClient();
-  if (!client) {
-    console.warn('Supabase client not initialized. Database is operating in strict live mode with no local mock fallback.');
-    return { stops: [], shifts: [], vehicles: [] };
-  }
-
-  try {
-    const [stopsRes, shiftsRes, vehiclesRes] = await Promise.all([
-      client.from('parcel_stops').select('*'),
-      client.from('active_shifts').select('*'),
-      client.from('registered_vehicles').select('*'),
-    ]);
-
-    return {
-      stops: stopsRes.data || [],
-      shifts: shiftsRes.data || [],
-      vehicles: vehiclesRes.data || [],
-    };
-  } catch (err) {
-    console.error('Failed to load live data from Supabase:', err);
-    return { stops: [], shifts: [], vehicles: [] };
-  }
+  return {
+    stops: [],
+    shifts: [],
+    vehicles: [],
+  };
 }
 
+/**
+ * Persists parcel stops associated with the authenticated courier
+ */
 export async function saveParcelStopsToSupabase(stops: ParcelStop[]) {
   const client = getSupabaseClient();
   if (!client || !stops || stops.length === 0) return;
 
   try {
-    const { error } = await client.from('parcel_stops').upsert(stops);
+    const { data: userData } = await client.auth.getUser();
+    const courierId = userData?.user?.id;
+
+    const payload = stops.map((stop) => {
+      const s = stop as any;
+      return {
+        id: s.id,
+        tracking_number: s.trackingNumber || s.trackingBarcode || s.barcode || '',
+        recipient_name: s.recipientName || s.recipient || '',
+        address_line1: s.address || s.recipientAddress || s.street || '',
+        postcode: s.postcode || '',
+        status: s.status,
+        assigned_zone: s.assignedZone || 'Front Seat',
+        voice_note_url: s.voiceNoteUrl,
+        delivery_timestamp: s.deliveryTimestamp,
+        return_reason: s.returnReason,
+        courier_id: courierId,
+      };
+    });
+
+    const { error } = await client.from('parcel_stops').upsert(payload);
     if (error) {
       console.error('Error saving parcel stops to Supabase:', error.message);
     }
@@ -54,12 +64,30 @@ export async function saveParcelStopsToSupabase(stops: ParcelStop[]) {
   }
 }
 
+/**
+ * Persists an active or completed delivery shift
+ */
 export async function saveShiftToSupabase(shift: ActiveShift) {
   const client = getSupabaseClient();
   if (!client || !shift) return;
 
   try {
-    const { error } = await client.from('active_shifts').upsert(shift);
+    const { data: userData } = await client.auth.getUser();
+    const courierId = userData?.user?.id;
+
+    const payload = {
+      id: shift.id,
+      courier_id: courierId,
+      platform: shift.network,
+      clock_in_time: shift.startTime,
+      clock_out_time: shift.endTime,
+      mileage_miles: shift.totalMilesDriven || shift.currentOdometer,
+      hourly_rate_gbp: shift.agreedBlockRate,
+      status: shift.isActive ? 'Active' : 'Completed',
+      depot_location: shift.notes?.replace('Depot: ', '') || 'UK Hub',
+    };
+
+    const { error } = await client.from('active_shifts').upsert(payload);
     if (error) {
       console.error('Error saving shift to Supabase:', error.message);
     }
@@ -68,12 +96,23 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
   }
 }
 
+/**
+ * Persists registered vehicle records
+ */
 export async function saveVehicleToSupabase(vehicle: RegisteredVehicle) {
   const client = getSupabaseClient();
   if (!client || !vehicle) return;
 
   try {
-    const { error } = await client.from('registered_vehicles').upsert(vehicle);
+    const { data: userData } = await client.auth.getUser();
+    const courierId = userData?.user?.id;
+
+    const payload = {
+      ...vehicle,
+      courier_id: courierId,
+    };
+
+    const { error } = await client.from('registered_vehicles').upsert(payload);
     if (error) {
       console.error('Error saving vehicle to Supabase:', error.message);
     }
@@ -82,12 +121,23 @@ export async function saveVehicleToSupabase(vehicle: RegisteredVehicle) {
   }
 }
 
+/**
+ * Persists fuel expense receipts and logs
+ */
 export async function saveFuelExpenseToSupabase(expense: FuelExpenseLog) {
   const client = getSupabaseClient();
   if (!client || !expense) return;
 
   try {
-    const { error } = await client.from('fuel_expenses').upsert(expense);
+    const { data: userData } = await client.auth.getUser();
+    const courierId = userData?.user?.id;
+
+    const payload = {
+      ...expense,
+      courier_id: courierId,
+    };
+
+    const { error } = await client.from('fuel_expenses').upsert(payload);
     if (error) {
       console.error('Error saving fuel expense to Supabase:', error.message);
     }

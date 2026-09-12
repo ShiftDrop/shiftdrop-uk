@@ -4,16 +4,19 @@ const config: CapacitorConfig = {
   appId: 'com.shiftdroppro.app',
   appName: 'ShiftDrop Pro',
   webDir: 'dist',
+  server: {
+    androidScheme: 'https',
+  },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 1500,
       launchAutoHide: true,
-      backgroundColor: "#0B0D13",
-      androidSplashResourceName: "splash",
-      androidScaleType: "CENTER_CROP",
+      backgroundColor: '#0B0D13',
+      androidSplashResourceName: 'ic_launcher',
+      androidScaleType: 'CENTER',
       showSpinner: false,
-      splashFullScreen: true,
-      splashImmersive: true,
+      splashFullScreen: false,
+      splashImmersive: false,
     },
   },
 };

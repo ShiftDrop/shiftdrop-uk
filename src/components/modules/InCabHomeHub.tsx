@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Play,
   CloudRain,
@@ -10,8 +10,6 @@ import {
   Navigation,
   PoundSterling,
   Calendar,
-  Layers,
-  Sparkles,
   Award,
   Key,
   Calculator,
@@ -30,7 +28,8 @@ interface InCabHomeHubProps {
   weather: WeatherTelemetry | null;
   taxMetrics: HMRCTaxCalculations;
   onStartShift: (network: CourierNetwork, startOdo: number, agreedRate: number, bonus: number) => void;
-  onNavigateTo: (module: 'hud' | 'loadin' | 'radar' | 'hmrc') => void;
+  onNavigateTo: (module: 'hud' | 'loadin' | 'radar' | 'hmrc' | 'doorstep' | 'calculator' | 'pro') => void;
+  isProUser?: boolean;
 }
 
 const NETWORKS: CourierNetwork[] = [
@@ -53,33 +52,66 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
   taxMetrics,
   onStartShift,
   onNavigateTo,
+  isProUser = false,
 }) => {
   const [selectedNetwork, setSelectedNetwork] = useState<CourierNetwork>('Amazon Flex');
-  const [startOdoInput, setStartOdoInput] = useState<number>(
-    activeShift ? activeShift.currentOdometer : 48228
+  const [startOdoInput, setStartOdoInput] = useState<number | ''>(
+    activeShift ? activeShift.currentOdometer : ''
   );
-  const [agreedRateInput, setAgreedRateInput] = useState<number>(72.50);
-  const [bonusInput, setBonusInput] = useState<number>(0);
+  const [agreedRateInput, setAgreedRateInput] = useState<number | ''>(
+    activeShift ? activeShift.agreedBlockRate : ''
+  );
+  const [bonusInput, setBonusInput] = useState<number | ''>(
+    activeShift ? activeShift.bonusPay : ''
+  );
+
+  // Sync inputs if active shift state updates in background
+  useEffect(() => {
+    if (activeShift) {
+      setStartOdoInput(activeShift.currentOdometer || '');
+      setAgreedRateInput(activeShift.agreedBlockRate || '');
+      setBonusInput(activeShift.bonusPay || '');
+      setSelectedNetwork(activeShift.network);
+    }
+  }, [activeShift]);
 
   const handleLaunchShift = () => {
     triggerHapticFeedback('success');
     speakUkVoicePrompt(`Clocked in for ${selectedNetwork} block. Opening parcel spatial organiser.`);
-    onStartShift(selectedNetwork, startOdoInput, agreedRateInput, bonusInput);
+    onStartShift(
+      selectedNetwork,
+      typeof startOdoInput === 'number' ? startOdoInput : 0,
+      typeof agreedRateInput === 'number' ? agreedRateInput : 0,
+      typeof bonusInput === 'number' ? bonusInput : 0
+    );
   };
 
+  const handleProGatedNavigation = (module: 'doorstep' | 'calculator') => {
+    if (!isProUser) {
+      onNavigateTo('pro');
+    } else {
+      onNavigateTo(module);
+    }
+  };
+
+  // Dynamic calculations derived strictly from real shifts
   const todayGross = activeShift?.isActive
     ? (activeShift.agreedBlockRate || 0) + (activeShift.bonusPay || 0)
-    : 78.50;
+    : 0;
 
   const pastTotal = shiftHistory.reduce(
     (sum, s) => sum + (s.agreedBlockRate || 0) + (s.bonusPay || 0),
     0
   );
-  const currentBlockTotal = activeShift?.isActive
-    ? (activeShift.agreedBlockRate || 0) + (activeShift.bonusPay || 0)
-    : 0;
-  const thisWeekGross = pastTotal + currentBlockTotal > 0 ? pastTotal + currentBlockTotal : 582.40;
+  const thisWeekGross = pastTotal + todayGross;
   const monthlyProjection = Math.round(thisWeekGross * 4.33);
+
+  // Safe numerical calculations for HMRC AMAP shield
+  const totalAmapDeduction = Number(taxMetrics?.totalAmapMileageDeduction);
+  const displayAmapDeduction = isNaN(totalAmapDeduction) ? 0 : totalAmapDeduction;
+
+  const totalMilesYTD = Number(taxMetrics?.totalBusinessMilesYTD);
+  const displayMilesYTD = isNaN(totalMilesYTD) ? 0 : totalMilesYTD;
 
   return (
     <div id="module-incab-home-hub" className="max-w-6xl mx-auto p-3 sm:p-5 space-y-5">
@@ -94,7 +126,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                 Cab Telemetry Online
               </span>
               <span className="text-[10px] font-mono text-secondary">
-                Manchester NW Hub • UK
+                {weather?.city ? `${weather.city} Hub • UK` : 'UK Regional Hub'}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-primary font-mono">
@@ -109,21 +141,31 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <button
               id="btn-quick-doorstep-intel"
-              onClick={() => onNavigateTo('doorstep')}
+              onClick={() => handleProGatedNavigation('doorstep')}
               className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-cyan/40 text-brand-cyan text-xs font-bold transition-all shadow-md active:scale-95"
               title="Open Doorstep Intel & Gate Code Vault"
             >
               <Key className="w-4 h-4" />
               <span>Gate Codes</span>
+              {!isProUser && (
+                <span className="px-1.5 py-0.2 text-[9px] font-bold font-mono rounded bg-amber-400/15 text-amber-400 border border-amber-400/30 ml-0.5">
+                  PRO
+                </span>
+              )}
             </button>
             <button
               id="btn-quick-shift-calc"
-              onClick={() => onNavigateTo('calculator')}
+              onClick={() => handleProGatedNavigation('calculator')}
               className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-emerald/40 text-brand-emerald text-xs font-bold transition-all shadow-md active:scale-95"
               title="Open Real Hourly Rate & Profit Calculator"
             >
               <Calculator className="w-4 h-4" />
               <span>Shift Profit</span>
+              {!isProUser && (
+                <span className="px-1.5 py-0.2 text-[9px] font-bold font-mono rounded bg-amber-400/15 text-amber-400 border border-amber-400/30 ml-0.5">
+                  PRO
+                </span>
+              )}
             </button>
             <button
               id="btn-quick-active-dispatch"
@@ -136,7 +178,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-spatial-loadin"
               onClick={() => onNavigateTo('loadin')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-cyan to-[#10B981] text-canvas text-xs font-extrabold transition-all shadow-lg hover:opacity-95 active:scale-95"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-extrabold transition-all shadow-lg hover:opacity-95 active:scale-95"
             >
               <Box className="w-4 h-4" />
               <span>Spatial Load-In</span>
@@ -158,7 +200,13 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
           </div>
           <div className="text-[10px] text-brand-emerald flex items-center gap-1 font-sans">
             <TrendingUp className="w-3 h-3" />
-            <span>{activeShift?.isActive ? 'Active Block Running' : '1 Block Completed'}</span>
+            <span>
+              {activeShift?.isActive
+                ? 'Active Block Running'
+                : shiftHistory.length > 0
+                  ? `${shiftHistory.length} Block(s) Logged`
+                  : 'No shifts recorded'}
+            </span>
           </div>
         </div>
 
@@ -172,7 +220,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             £{thisWeekGross.toFixed(2)}
           </div>
           <div className="text-[10px] text-secondary font-sans">
-            7 Blocks • 28.5 hrs
+            {shiftHistory.length > 0 ? `${shiftHistory.length} Blocks Recorded` : '0 Blocks Recorded'}
           </div>
         </div>
 
@@ -185,26 +233,33 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
           <div className="text-xl sm:text-2xl font-black text-primary">
             £{monthlyProjection.toFixed(2)}
           </div>
-          <div className="text-[10px] text-cyan-400 font-sans">
-            Target £2.4k on track
+          <div className="text-[10px] text-secondary font-sans">
+            {thisWeekGross > 0 ? 'Paced on current activity' : 'Awaiting shift data'}
           </div>
         </div>
 
         {/* AMAP Tax Shield */}
         <div
-          onClick={() => onNavigateTo('hmrc')}
-          className="p-4 rounded-2xl bg-surface border border-brand-emerald/40 space-y-1 shadow-md cursor-pointer hover:border-brand-emerald transition-colors"
+          onClick={() => (!isProUser ? onNavigateTo('pro') : onNavigateTo('hmrc'))}
+          className="p-4 rounded-2xl bg-surface border border-brand-emerald/40 space-y-1 shadow-md cursor-pointer hover:border-brand-emerald transition-colors relative"
           title="Click to open HMRC AMAP Tax Vault"
         >
           <div className="flex items-center justify-between text-secondary text-[11px]">
-            <span>AMAP Tax Shield</span>
+            <div className="flex items-center gap-1.5">
+              <span>AMAP Tax Shield</span>
+              {!isProUser && (
+                <span className="px-1 py-0.2 text-[8px] font-bold font-mono rounded bg-amber-400/15 text-amber-400 border border-amber-400/30">
+                  PRO
+                </span>
+              )}
+            </div>
             <ShieldCheck className="w-3.5 h-3.5 text-brand-emerald" />
           </div>
           <div className="text-xl sm:text-2xl font-black text-brand-emerald">
-            £{taxMetrics.totalAmapMileageDeduction.toFixed(2)}
+            £{displayAmapDeduction.toFixed(2)}
           </div>
           <div className="text-[10px] text-secondary font-sans flex items-center justify-between">
-            <span>{taxMetrics.totalBusinessMilesYTD} mi claimable</span>
+            <span>{displayMilesYTD} mi claimable</span>
             <span className="text-brand-emerald font-bold">45p/mi</span>
           </div>
         </div>
@@ -264,9 +319,10 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
               <input
                 id="input-start-odometer"
                 type="number"
+                placeholder="e.g. 48000"
                 value={startOdoInput}
-                onChange={(e) => setStartOdoInput(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold focus:border-brand-cyan focus:outline-none"
+                onChange={(e) => setStartOdoInput(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
               />
             </div>
 
@@ -280,9 +336,10 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                   id="input-agreed-block-rate"
                   type="number"
                   step="0.50"
+                  placeholder="0.00"
                   value={agreedRateInput}
-                  onChange={(e) => setAgreedRateInput(Number(e.target.value))}
-                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold focus:border-brand-cyan focus:outline-none"
+                  onChange={(e) => setAgreedRateInput(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
                 />
               </div>
             </div>
@@ -297,9 +354,10 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                   id="input-surge-bonus-rate"
                   type="number"
                   step="0.50"
+                  placeholder="0.00"
                   value={bonusInput}
-                  onChange={(e) => setBonusInput(Number(e.target.value))}
-                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold focus:border-brand-cyan focus:outline-none"
+                  onChange={(e) => setBonusInput(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
                 />
               </div>
             </div>
@@ -309,7 +367,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-clock-in-action"
               onClick={handleLaunchShift}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-cyan to-[#10B981] text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>
@@ -319,7 +377,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
           </div>
         </div>
 
-        {/* Right 5 Cols: Open-Meteo GPS Weather & Ice Risk */}
+        {/* Right 5 Cols: Live Weather Telemetry */}
         <div className="lg:col-span-5 bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-subtle pb-3 mb-4">
@@ -334,7 +392,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
               </span>
             </div>
 
-            {weather && (
+            {weather ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -377,7 +435,6 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                   </div>
                 </div>
 
-                {/* Frost / Ice Advisory Box */}
                 <div
                   className={`p-3 rounded-xl border text-xs leading-relaxed ${
                     weather.isFrostWarning
@@ -398,16 +455,26 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                   <p className="text-[11px]">{weather.frostAdvisory}</p>
                 </div>
               </div>
+            ) : (
+              <div className="space-y-3 py-6 text-center">
+                <div className="w-8 h-8 mx-auto border-2 border-brand-cyan border-t-transparent rounded-full animate-spin" />
+                <p className="text-xs text-secondary font-mono">Connecting to UK Weather Station...</p>
+              </div>
             )}
           </div>
 
           <div className="pt-2">
             <button
-              onClick={() => onNavigateTo('radar')}
+              onClick={() => (!isProUser ? onNavigateTo('pro') : onNavigateTo('radar'))}
               className="w-full py-2.5 rounded-xl bg-inset hover:bg-subtle border border-subtle text-xs font-semibold text-secondary hover:text-primary flex items-center justify-center gap-2 transition-colors"
             >
               <Award className="w-4 h-4 text-brand-cyan" />
               <span>Check UK Courier Pay Benchmarks (Pay Radar)</span>
+              {!isProUser && (
+                <span className="px-1.5 py-0.2 text-[9px] font-bold font-mono rounded bg-amber-400/15 text-amber-400 border border-amber-400/30 ml-1">
+                  PRO
+                </span>
+              )}
             </button>
           </div>
         </div>
