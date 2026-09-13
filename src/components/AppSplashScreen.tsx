@@ -31,35 +31,30 @@ export const AppSplashScreen: React.FC<AppSplashScreenProps> = ({
   return (
     <div
       id="app-splash-screen"
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0B0D13] transition-opacity duration-400 select-none ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-black transition-opacity duration-400 select-none ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
-      {/* Background ambient radial glow */}
-      <div className="absolute w-72 h-72 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
+      {/* Subtle ambient cyan glow matching the branding */}
+      <div className="absolute w-80 h-80 rounded-full bg-cyan-500/15 blur-3xl pointer-events-none" />
 
       <div className="relative flex flex-col items-center text-center px-6">
-        {/* Animated Courier Silhouette Icon */}
-        <div className="relative w-36 h-36 sm:w-44 sm:h-44 mb-6 animate-pulse">
-          <div className="absolute inset-0 rounded-3xl bg-cyan-500/20 blur-xl" />
+        {/* Central Brand Emblem */}
+        <div className="relative w-48 h-48 sm:w-56 sm:h-56 mb-4">
           <img
             src="/icon.png"
-            alt="ShiftDrop Pro Logo"
-            className="w-full h-full object-contain drop-shadow-[0_0_24px_rgba(6,182,212,0.6)]"
+            alt="ShiftDrop Logo"
+            className="w-full h-full object-contain drop-shadow-[0_0_28px_rgba(6,182,212,0.45)]"
           />
         </div>
 
-        {/* Brand Title */}
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-mono flex items-center gap-2">
-          ShiftDrop <span className="text-brand-cyan">PRO</span>
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-400 font-sans tracking-wide mt-1">
+        <p className="text-xs sm:text-sm text-slate-400 font-sans tracking-wide">
           UK HMRC In-Cab Courier Workstation
         </p>
 
         {/* Loading / Ready Indicator */}
-        <div className="mt-8 flex items-center gap-2 text-[11px] font-mono text-brand-cyan/80">
-          <span className="w-2 h-2 rounded-full bg-brand-cyan animate-ping" />
+        <div className="mt-8 flex items-center gap-2 text-[11px] font-mono text-cyan-400">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
           <span>{isPreview ? 'Splash Screen Preview' : 'Initialising Cab HUD & Telemetry...'}</span>
         </div>
       </div>

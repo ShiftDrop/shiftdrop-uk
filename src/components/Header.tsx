@@ -78,17 +78,10 @@ export const Header: React.FC<HeaderProps> = ({
         )}
         <button
           type="button"
-          className="flex items-center gap-2 cursor-pointer select-none text-left bg-transparent border-0 p-0"
+          className="flex items-center cursor-pointer select-none text-left bg-transparent border-0 p-0"
           onClick={() => onOpenPortal(null)}
           title="Return to In-Cab Workstation"
         >
-          <div className="w-8 h-8 rounded-lg bg-black border border-brand-cyan/40 p-1 flex items-center justify-center shadow-sm shrink-0 overflow-hidden">
-            <img
-              src="/icon.png"
-              alt="ShiftDrop Courier Logo"
-              className="w-full h-full object-contain"
-            />
-          </div>
           <h1 className="text-base sm:text-xl font-bold tracking-tight text-brand-cyan font-mono whitespace-nowrap">
             ShiftDrop
           </h1>
