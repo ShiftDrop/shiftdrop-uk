@@ -68,6 +68,12 @@ export default function App() {
   // Navigation & Layout: default strictly to auth
   const [activeModule, setActiveModule] = useState<ActiveModuleId>('auth');
 
+  // Dedicated Password Recovery State
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState('');
+
   // Save active module to user-scoped storage
   useEffect(() => {
     if (userProfile?.id && activeModule && activeModule !== 'auth' && activeModule !== 'pro') {
@@ -146,10 +152,15 @@ export default function App() {
       const client = getSupabaseClient();
       if (!client) return;
 
-      // Detect if arriving from an email confirmation link (#access_token=... or ?code=...)
+      // Check URL fragments for Password Recovery or Verification
       if (typeof window !== 'undefined') {
         const hash = window.location.hash;
         const search = window.location.search;
+
+        if (hash.includes('type=recovery')) {
+          setIsResettingPassword(true);
+          return;
+        }
 
         if (hash.includes('access_token') || hash.includes('type=signup') || search.includes('code=')) {
           const { data, error } = await client.auth.getSession();
@@ -179,6 +190,20 @@ export default function App() {
       }
     }
     restoreSessionAndHandleVerification();
+  }, []);
+
+  // Listen directly for PASSWORD_RECOVERY event
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResettingPassword(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Handle Supabase auth state changes strictly for verified drivers
@@ -556,6 +581,72 @@ export default function App() {
             onComplete={() => setShowSplash(false)}
           />
         )}
+        {/* Set New Password Modal (rendered even if activeModule === 'auth') */}
+        {isResettingPassword && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-surface border border-brand-cyan/40 rounded-2xl p-6 sm:p-7 w-full max-w-md shadow-2xl space-y-4">
+              <h3 className="text-lg font-bold text-primary">Set New Password</h3>
+              <p className="text-xs text-secondary">
+                Enter your new secure password for your ShiftDrop account.
+              </p>
+
+              {resetPasswordError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
+                  {resetPasswordError}
+                </div>
+              )}
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (newPasswordInput.trim().length < 6) {
+                    setResetPasswordError('Password must be at least 6 characters.');
+                    return;
+                  }
+
+                  setResetPasswordLoading(true);
+                  setResetPasswordError('');
+
+                  const client = getSupabaseClient();
+                  if (!client) return;
+
+                  const { error } = await client.auth.updateUser({
+                    password: newPasswordInput.trim(),
+                  });
+
+                  setResetPasswordLoading(false);
+
+                  if (error) {
+                    setResetPasswordError(error.message);
+                  } else {
+                    alert('Password updated successfully! Signing you in...');
+                    setIsResettingPassword(false);
+                    window.history.replaceState(null, '', window.location.pathname);
+                    window.location.reload();
+                  }
+                }}
+                className="space-y-4"
+              >
+                <input
+                  type="password"
+                  required
+                  placeholder="Enter new password (min 6 characters)"
+                  value={newPasswordInput}
+                  onChange={(e) => setNewPasswordInput(e.target.value)}
+                  className="w-full bg-inset border border-subtle rounded-xl py-3 px-4 text-sm text-primary focus:outline-none focus:border-brand-cyan"
+                />
+
+                <button
+                  type="submit"
+                  disabled={resetPasswordLoading}
+                  className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center"
+                >
+                  {resetPasswordLoading ? 'Updating Password...' : 'Save New Password'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -791,6 +882,73 @@ export default function App() {
           duration={1500}
           onComplete={() => setShowSplash(false)}
         />
+      )}
+
+      {/* Set New Password Modal (rendered inside the active workstation layout) */}
+      {isResettingPassword && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface border border-brand-cyan/40 rounded-2xl p-6 sm:p-7 w-full max-w-md shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-primary">Set New Password</h3>
+            <p className="text-xs text-secondary">
+              Enter your new secure password for your ShiftDrop account.
+            </p>
+
+            {resetPasswordError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
+                {resetPasswordError}
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (newPasswordInput.trim().length < 6) {
+                  setResetPasswordError('Password must be at least 6 characters.');
+                  return;
+                }
+
+                setResetPasswordLoading(true);
+                setResetPasswordError('');
+
+                const client = getSupabaseClient();
+                if (!client) return;
+
+                const { error } = await client.auth.updateUser({
+                  password: newPasswordInput.trim(),
+                });
+
+                setResetPasswordLoading(false);
+
+                if (error) {
+                  setResetPasswordError(error.message);
+                } else {
+                  alert('Password updated successfully! Signing you in...');
+                  setIsResettingPassword(false);
+                  window.history.replaceState(null, '', window.location.pathname);
+                  window.location.reload();
+                }
+              }}
+              className="space-y-4"
+            >
+              <input
+                type="password"
+                required
+                placeholder="Enter new password (min 6 characters)"
+                value={newPasswordInput}
+                onChange={(e) => setNewPasswordInput(e.target.value)}
+                className="w-full bg-inset border border-subtle rounded-xl py-3 px-4 text-sm text-primary focus:outline-none focus:border-brand-cyan"
+              />
+
+              <button
+                type="submit"
+                disabled={resetPasswordLoading}
+                className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center"
+              >
+                {resetPasswordLoading ? 'Updating Password...' : 'Save New Password'}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
