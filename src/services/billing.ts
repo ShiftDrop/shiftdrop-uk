@@ -6,8 +6,22 @@ import { Capacitor } from '@capacitor/core';
 const REVENUECAT_GOOGLE_API_KEY =
   (import.meta as any).env?.VITE_REVENUECAT_GOOGLE_API_KEY || 'goog_YOUR_PUBLIC_KEY_HERE';
 
+// Guard helper: verify whether a legitimate key exists
+const isKeyConfigured = (): boolean => {
+  return (
+    typeof REVENUECAT_GOOGLE_API_KEY === 'string' &&
+    REVENUECAT_GOOGLE_API_KEY.startsWith('goog_') &&
+    !REVENUECAT_GOOGLE_API_KEY.includes('YOUR_PUBLIC_KEY')
+  );
+};
+
 export async function setupRevenueCat(userId?: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
+
+  if (!isKeyConfigured()) {
+    console.info('RevenueCat: Skipped configuration (placeholder key detected).');
+    return;
+  }
 
   try {
     await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
@@ -23,6 +37,10 @@ export async function setupRevenueCat(userId?: string): Promise<void> {
 export async function checkProStatus(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false;
 
+  if (!isKeyConfigured()) {
+    return false;
+  }
+
   try {
     const { customerInfo } = await Purchases.getCustomerInfo();
     return typeof customerInfo.entitlements.active['pro'] !== 'undefined';
@@ -34,6 +52,10 @@ export async function checkProStatus(): Promise<boolean> {
 
 export async function fetchProPackage(): Promise<PurchasesPackage | null> {
   if (!Capacitor.isNativePlatform()) return null;
+
+  if (!isKeyConfigured()) {
+    return null;
+  }
 
   try {
     const offerings = await Purchases.getOfferings();
@@ -47,6 +69,11 @@ export async function fetchProPackage(): Promise<PurchasesPackage | null> {
 }
 
 export async function purchasePro(pkg: PurchasesPackage): Promise<boolean> {
+  if (!isKeyConfigured()) {
+    console.warn('Cannot initiate purchase: RevenueCat key not configured.');
+    return false;
+  }
+
   try {
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
     return typeof customerInfo.entitlements.active['pro'] !== 'undefined';

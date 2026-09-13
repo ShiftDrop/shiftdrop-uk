@@ -1,11 +1,16 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.shiftdroppro.app',
+  appId: 'com.pixelnotchstudio.shiftdroppro',
   appName: 'ShiftDrop Pro',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
+    cleartext: true,
+    hostname: 'localhost',
+  },
+  android: {
+    webContentsDebuggingEnabled: true,
   },
   plugins: {
     SplashScreen: {

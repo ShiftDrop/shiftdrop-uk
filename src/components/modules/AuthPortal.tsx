@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Camera,
   MailCheck,
+  KeyRound,
 } from 'lucide-react';
 import { UserSessionProfile } from '../../types';
 import { 
@@ -17,7 +18,8 @@ import {
   supabaseSignIn, 
   supabaseSignUp, 
   supabaseSignOut, 
-  supabaseSignInWithOAuth 
+  supabaseSignInWithOAuth,
+  getSupabaseClient,
 } from '../../services/supabase';
 import { triggerHapticFeedback, speakUkVoicePrompt } from '../../services/telemetry';
 
@@ -48,6 +50,12 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isAwaitingVerification, setIsAwaitingVerification] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
+
+  // Password Recovery State
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetStatus, setResetStatus] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   const resetFormFields = () => {
     setEmail('');
@@ -131,7 +139,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           return;
         }
 
-        // Flush any active session or profile in parent state immediately
         onUpdateUserProfile(null);
 
         const res: any = await supabaseSignUp(cleanEmail, password, {
@@ -149,7 +156,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           return;
         }
 
-        // Revoke tentative session and guarantee workstation remains locked
         try {
           await supabaseSignOut();
         } catch (err) {}
@@ -166,6 +172,50 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
       setMessage({ text: error?.message || 'Authentication error.', type: 'error' });
       triggerHapticFeedback('warning');
       setIsLoading(false);
+    }
+  };
+
+  const handlePasswordResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = resetEmail.trim();
+
+    if (!cleanEmail) {
+      setResetStatus({ text: 'Please enter your registered email address.', type: 'error' });
+      return;
+    }
+
+    setIsSendingReset(true);
+    setResetStatus(null);
+    triggerHapticFeedback('light');
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setResetStatus({ text: 'Authentication service unavailable.', type: 'error' });
+      setIsSendingReset(false);
+      return;
+    }
+
+    try {
+      const { error } = await client.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: 'https://shiftdrop.co.uk',
+      });
+
+      setIsSendingReset(false);
+
+      if (error) {
+        setResetStatus({ text: error.message, type: 'error' });
+        triggerHapticFeedback('warning');
+      } else {
+        setResetStatus({
+          text: 'Recovery link dispatched! Please check your email inbox to reset your password.',
+          type: 'success',
+        });
+        triggerHapticFeedback('success');
+      }
+    } catch (err: any) {
+      setIsSendingReset(false);
+      setResetStatus({ text: err?.message || 'Unable to request password reset.', type: 'error' });
+      triggerHapticFeedback('warning');
     }
   };
 
@@ -234,7 +284,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     return (
       <div className="max-w-2xl mx-auto space-y-6 animate-fade-in p-4 sm:p-0 font-sans">
         <div className="bg-surface border border-brand-cyan/30 rounded-2xl p-6 sm:p-8 text-center space-y-4 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 inset-x-0 h-1.5 bg-linear-to-r from-brand-cyan via-brand-emerald to-brand-cyan" />
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-brand-cyan via-brand-emerald to-brand-cyan" />
           
           <div className="relative w-24 h-24 mx-auto mb-4">
             <div className="w-full h-full rounded-full bg-inset border-4 border-surface shadow-lg overflow-hidden flex items-center justify-center text-primary text-2xl font-black font-mono">
@@ -290,7 +340,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
         </p>
       </div>
 
-      <div className="bg-surface border border-subtle rounded-2xl p-6 shadow-xl">
+      <div className="bg-surface border border-subtle rounded-2xl p-6 shadow-xl relative">
         {message && (
           <div className={`mb-6 p-3 rounded-xl flex items-start gap-2 text-sm font-medium ${
             message.type === 'error' 
@@ -434,6 +484,22 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             />
           </div>
 
+          {authMode === 'login' && (
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setResetEmail(email);
+                  setResetStatus(null);
+                  setIsForgotPassword(true);
+                }}
+                className="text-xs text-brand-cyan hover:underline transition-colors font-medium"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
           {authMode === 'signup' && (
             <div className="pt-2">
               <p className="text-[10px] text-secondary font-mono mb-2 uppercase tracking-wider">
@@ -482,6 +548,78 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Password Reset Modal */}
+      {isForgotPassword && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface border border-subtle rounded-2xl p-6 sm:p-7 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/30 flex items-center justify-center shrink-0">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Reset Password</h3>
+                <p className="text-xs text-secondary">
+                  We'll send a recovery link to your email address.
+                </p>
+              </div>
+            </div>
+
+            {resetStatus && (
+              <div className={`p-3 rounded-xl flex items-start gap-2 text-xs font-medium ${
+                resetStatus.type === 'error'
+                  ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                  : 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20'
+              }`}>
+                {resetStatus.type === 'error' ? (
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                )}
+                <p>{resetStatus.text}</p>
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordResetSubmit} className="space-y-4 pt-1">
+              <div className="relative">
+                <Mail className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  placeholder="Registered Email Address"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  className="w-full bg-inset border border-subtle rounded-xl py-3 pl-10 pr-4 text-sm text-primary focus:outline-none focus:border-brand-cyan"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPassword(false);
+                    setResetStatus(null);
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-inset border border-subtle text-primary font-bold text-xs hover:bg-subtle active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingReset}
+                  className="flex-1 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSendingReset ? (
+                    <div className="w-4 h-4 border-2 border-canvas/30 border-t-canvas rounded-full animate-spin" />
+                  ) : (
+                    <span>Send Reset Link</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
