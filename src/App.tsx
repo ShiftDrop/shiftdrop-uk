@@ -362,23 +362,31 @@ export default function App() {
           .from('active_shifts')
           .select('*')
           .eq('courier_id', currentProfileId)
-          .order('created_at', { ascending: false });
+          .order('clock_in_time', { ascending: false });
 
-        if (!shiftError && remoteShifts) {
-          const formattedShifts: ActiveShift[] = remoteShifts.map((s: any) => ({
-            id: s.id,
-            network: s.platform,
-            startTime: s.clock_in_time,
-            endTime: s.clock_out_time,
-            startingOdometer: 0,
-            currentOdometer: s.mileage_miles,
-            agreedBlockRate: s.hourly_rate_gbp,
-            bonusPay: 0,
-            stops: [],
-            isActive: s.status === 'Active',
-            notes: `Depot: ${s.depot_location}`,
-            totalMilesDriven: s.mileage_miles,
-          }));
+        if (shiftError) {
+          console.warn('Could not load shifts from cloud:', shiftError.message);
+        } else if (remoteShifts) {
+          const formattedShifts: ActiveShift[] = remoteShifts.map((s: any) => {
+            const isCurrentlyActive =
+              String(s.status).toLowerCase() === 'active' && !s.clock_out_time;
+
+            return {
+              id: s.id,
+              network: s.platform || 'Amazon Flex',
+              startTime: s.clock_in_time,
+              endTime: s.clock_out_time,
+              startingOdometer: Number(s.starting_odometer) || 0,
+              currentOdometer: Number(s.mileage_miles) || 0,
+              agreedBlockRate: Number(s.hourly_rate_gbp) || 0,
+              bonusPay: 0,
+              stops: [],
+              isActive: isCurrentlyActive,
+              notes: s.depot_location ? `Depot: ${s.depot_location}` : '',
+              totalMilesDriven: Number(s.mileage_miles) || 0,
+            };
+          });
+
           setShiftHistory(formattedShifts);
           const active = formattedShifts.find((sh) => sh.isActive);
           if (active) setActiveShift(active);
@@ -400,7 +408,7 @@ export default function App() {
             status: p.status,
             assignedZone: p.assigned_zone || 'Front Seat',
             voiceNoteUrl: p.voice_note_url,
-            deliveryTimestamp: p.delivery_timestamp,
+            deliveryTimestamp: p.deliveryTimestamp,
             returnReason: p.return_reason,
           } as unknown as ParcelStop));
           setStops(formattedStops);
@@ -486,7 +494,7 @@ export default function App() {
     (network: CourierNetwork, startOdo: number, agreedRate: number, bonus: number) => {
       triggerHapticFeedback('success');
       const newShift: ActiveShift = {
-        id: `shift_${Date.now()}`,
+        id: crypto.randomUUID(),
         network,
         startTime: new Date().toISOString(),
         startingOdometer: startOdo,
