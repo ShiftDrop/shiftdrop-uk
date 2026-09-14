@@ -98,6 +98,7 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
       status: shift.isActive ? 'Active' : 'Completed',
       depot_location: shift.notes?.replace('Depot: ', '') || 'UK Hub',
       shift_date: todayIsoDate,
+      planned_drops: shift.stops?.length || 0,
     };
 
     const { error } = await client.from('active_shifts').upsert(payload);
