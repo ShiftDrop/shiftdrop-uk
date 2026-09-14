@@ -6,7 +6,6 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
   ArrowRight,
   Camera,
   MailCheck,
@@ -14,7 +13,6 @@ import {
 } from 'lucide-react';
 import { UserSessionProfile } from '../../types';
 import { 
-  DEMO_USER_PROFILE, 
   supabaseSignIn, 
   supabaseSignUp, 
   supabaseSignOut, 
@@ -68,17 +66,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
-
-  const handleDemoSignIn = () => {
-    setIsLoading(true);
-    triggerHapticFeedback('light');
-    setTimeout(() => {
-      onUpdateUserProfile(DEMO_USER_PROFILE);
-      setIsLoading(false);
-      onContinueToHub();
-      triggerHapticFeedback('success');
-    }, 600);
   };
 
   const handleSignOut = async () => {
@@ -238,7 +225,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     }
   };
 
-  // 1. Email Verification Guard Card
   if (isAwaitingVerification) {
     return (
       <div className="max-w-md mx-auto space-y-6 animate-fade-in p-4 sm:p-0 font-sans">
@@ -279,12 +265,11 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     );
   }
 
-  // 2. Active Authenticated Profile Screen
   if (userProfile && !userProfile.isDemoUser) {
     return (
       <div className="max-w-2xl mx-auto space-y-6 animate-fade-in p-4 sm:p-0 font-sans">
         <div className="bg-surface border border-brand-cyan/30 rounded-2xl p-6 sm:p-8 text-center space-y-4 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-brand-cyan via-brand-emerald to-brand-cyan" />
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-linear-to-r from-brand-cyan via-brand-emerald to-brand-cyan" />
           
           <div className="relative w-24 h-24 mx-auto mb-4">
             <div className="w-full h-full rounded-full bg-inset border-4 border-surface shadow-lg overflow-hidden flex items-center justify-center text-primary text-2xl font-black font-mono">
@@ -325,7 +310,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     );
   }
 
-  // 3. Sign In / Create Account Form
   return (
     <div className="max-w-md mx-auto space-y-6 animate-fade-in p-4 sm:p-0 font-sans">
       <div className="text-center space-y-3 mb-6">
@@ -352,7 +336,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           </div>
         )}
 
-        {/* OAuth Buttons */}
+        {/* OAuth Providers */}
         <div className="space-y-3 mb-6">
           <button
             type="button"
@@ -386,7 +370,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           </div>
         </div>
 
-        {/* Auth Mode Switcher */}
+        {/* Mode Switcher */}
         <div className="flex rounded-lg bg-inset p-1 mb-6 border border-subtle">
           <button
             type="button"
@@ -532,21 +516,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             )}
           </button>
         </form>
-        
-        {authMode === 'login' && (
-          <div className="mt-8 pt-6 border-t border-subtle text-center">
-            <p className="text-xs text-secondary mb-3">Want to preview the workstation first?</p>
-            <button
-              type="button"
-              onClick={handleDemoSignIn}
-              disabled={isLoading}
-              className="w-full py-3 rounded-xl bg-inset text-primary border border-brand-amber/30 font-bold text-sm hover:bg-subtle active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-4 h-4 text-brand-amber" />
-              <span>Enter Demo Mode (No Setup)</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Password Reset Modal */}
@@ -567,8 +536,8 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
             {resetStatus && (
               <div className={`p-3 rounded-xl flex items-start gap-2 text-xs font-medium ${
-                resetStatus.type === 'error'
-                  ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                resetStatus.type === 'error' 
+                  ? 'bg-red-500/10 text-red-500 border border-red-500/20' 
                   : 'bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20'
               }`}>
                 {resetStatus.type === 'error' ? (

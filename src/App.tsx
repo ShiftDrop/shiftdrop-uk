@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 import {
   ActiveModuleId,
   ParcelStop,
@@ -47,7 +48,6 @@ import { fetchUkWeatherTelemetry, triggerHapticFeedback, speakUkVoicePrompt } fr
 import { onSupabaseAuthStateChange, getSupabaseClient } from './services/supabase';
 import { setupRevenueCat, checkProStatus } from './services/billing';
 
-// Define all 5 modules that require a Pro subscription
 const PRO_ONLY_MODULES: ActiveModuleId[] = [
   'doorstep',
   'calculator',
@@ -56,25 +56,19 @@ const PRO_ONLY_MODULES: ActiveModuleId[] = [
   'hmrc',
 ];
 
-// Helper to scope localStorage keys strictly to the active user
 const getScopedKey = (key: string, userId?: string) => {
   return userId ? `shiftDrop_${userId}_${key}` : `shiftDrop_anon_${key}`;
 };
 
 export default function App() {
-  // Authentication Profile: starts strictly null to eliminate storage boot loops
   const [userProfile, setUserProfile] = useState<UserSessionProfile | null>(null);
-
-  // Navigation & Layout: default strictly to auth
   const [activeModule, setActiveModule] = useState<ActiveModuleId>('auth');
 
-  // Dedicated Password Recovery State
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState('');
 
-  // Save active module to user-scoped storage
   useEffect(() => {
     if (userProfile?.id && activeModule && activeModule !== 'auth' && activeModule !== 'pro') {
       localStorage.setItem(getScopedKey('active_module', userProfile.id), activeModule);
@@ -86,7 +80,6 @@ export default function App() {
   const [isCollapsedDesktop, setIsCollapsedDesktop] = useState(false);
   const [activePortal, setActivePortal] = useState<'landing' | 'studio' | null>(null);
 
-  // Compute PRO status cleanly
   const [isNativePro, setIsNativePro] = useState(false);
 
   const isProUser =
@@ -96,7 +89,6 @@ export default function App() {
     (userProfile as any)?.is_pro === true ||
     localStorage.getItem(getScopedKey('isPro', userProfile?.id)) === 'true';
 
-  // Workstation Data State
   const [stops, setStops] = useState<ParcelStop[]>([]);
   const [activeShift, setActiveShift] = useState<ActiveShift | null>(null);
   const [shiftHistory, setShiftHistory] = useState<ActiveShift[]>([]);
@@ -105,7 +97,6 @@ export default function App() {
   const [parkingRecords, setParkingRecords] = useState<ParkingEvidence[]>([]);
   const [doorstepIntelList, setDoorstepIntelList] = useState<DoorstepIntelItem[]>([]);
 
-  // User Profile Handler with Cache Isolation and Signout Sanitation
   const handleUpdateUserProfile = useCallback((newProfile: UserSessionProfile | null) => {
     const previousId = userProfile?.id;
 
@@ -146,13 +137,11 @@ export default function App() {
     setUserProfile(newProfile);
   }, [userProfile?.id]);
 
-  // Session restoration & email confirmation token exchange
   useEffect(() => {
     async function restoreSessionAndHandleVerification() {
       const client = getSupabaseClient();
       if (!client) return;
 
-      // Check URL fragments for Password Recovery or Verification
       if (typeof window !== 'undefined') {
         const hash = window.location.hash;
         const search = window.location.search;
@@ -172,7 +161,6 @@ export default function App() {
         }
       }
 
-      // Validate current session state
       const { data } = await client.auth.getSession();
       if (data.session?.user && data.session.user.email_confirmed_at) {
         const saved = localStorage.getItem('shiftDrop_driver_profile');
@@ -192,7 +180,6 @@ export default function App() {
     restoreSessionAndHandleVerification();
   }, []);
 
-  // Listen directly for PASSWORD_RECOVERY event
   useEffect(() => {
     const client = getSupabaseClient();
     if (!client) return;
@@ -206,14 +193,12 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Handle Supabase auth state changes strictly for verified drivers
   useEffect(() => {
     const unsubscribe = onSupabaseAuthStateChange(async (profile) => {
       if (profile) {
         const client = getSupabaseClient();
         if (client) {
           const { data } = await client.auth.getSession();
-          // Block unconfirmed sessions from logging into the workstation
           if (data.session?.user && !data.session.user.email_confirmed_at) {
             setUserProfile(null);
             return;
@@ -231,7 +216,6 @@ export default function App() {
     return () => unsubscribe();
   }, [handleUpdateUserProfile]);
 
-  // Re-verify RevenueCat entitlement if already authenticated on launch
   useEffect(() => {
     async function syncNativeBilling() {
       if (userProfile?.id) {
@@ -243,7 +227,6 @@ export default function App() {
     syncNativeBilling();
   }, [userProfile?.id]);
 
-  // Handle Stripe redirect URL (?upgrade=success or ?upgrade=cancelled)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgrade') === 'success') {
@@ -267,7 +250,6 @@ export default function App() {
     }
   }, [userProfile, handleUpdateUserProfile]);
 
-  // Centralised Navigation Handler with Feature Gating
   const handleNavigateToModule = useCallback(
     (mod: ActiveModuleId) => {
       const isProModule = PRO_ONLY_MODULES.includes(mod);
@@ -287,7 +269,6 @@ export default function App() {
     [isProUser]
   );
 
-  // Live Weather Telemetry
   const [weather, setWeather] = useState<WeatherTelemetry | null>(null);
 
   const handleAddDoorstepIntel = (newItem: DoorstepIntelItem) => {
@@ -312,7 +293,6 @@ export default function App() {
     });
   };
 
-  // Settings & Modals
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
@@ -322,7 +302,7 @@ export default function App() {
     isVoiceGuidanceEnabled: true,
     isHapticFeedbackEnabled: true,
     isFrostWarningAlertActive: true,
-    isAutoCloudSyncEnabled: false,
+    isAutoCloudSyncEnabled: true,
     preferredSatNavApp: 'Google Maps',
     soundVolume: 0.9,
     voiceGenderPreference: 'en-GB-Male',
@@ -332,16 +312,36 @@ export default function App() {
     isGeofencedAutoCheckInEnabled: true,
   });
 
-  // Fetch live weather on startup
+  // Fetch Live Weather Telemetry via GPS Geolocation
   useEffect(() => {
-    async function loadWeather() {
-      const data = await fetchUkWeatherTelemetry(53.4808, -2.2426, 'Manchester');
-      setWeather(data);
+    async function loadLiveWeather() {
+      try {
+        let lat = 53.4808;
+        let lon = -2.2426;
+        let city = 'UK Region';
+
+        try {
+          const pos = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+          lat = pos.coords.latitude;
+          lon = pos.coords.longitude;
+          city = 'Current Location';
+        } catch (geoErr) {
+          console.info('Using region fallback coordinates:', geoErr);
+        }
+
+        const data = await fetchUkWeatherTelemetry(lat, lon, city);
+        setWeather(data);
+      } catch (err) {
+        console.warn('Weather telemetry load failure:', err);
+      }
     }
-    loadWeather();
+    loadLiveWeather();
   }, []);
 
-  // Fetch cloud data strictly for the logged-in courier
+  // Fetch Supabase Cloud Data strictly for the authenticated courier
   useEffect(() => {
     if (!userProfile || !userProfile.id || userProfile.isDemoUser) {
       setStops([]);
@@ -353,7 +353,6 @@ export default function App() {
 
     const client = getSupabaseClient();
     if (!client) return;
-
     const currentProfileId = userProfile.id;
 
     async function fetchCloudData() {
@@ -414,17 +413,75 @@ export default function App() {
     fetchCloudData();
   }, [userProfile]);
 
-  // Save stops to Supabase on modification
+  // Supabase Postgres Realtime Subscription for parcel_stops
+  useEffect(() => {
+    if (!userProfile?.id) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const channel = client
+      .channel(`public:parcel_stops:${userProfile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'parcel_stops',
+          filter: `user_id=eq.${userProfile.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const p: any = payload.new;
+            const newStop: ParcelStop = {
+              id: p.id,
+              trackingNumber: p.tracking_number,
+              recipientName: p.recipient_name,
+              address: `${p.address_line1 || ''}, ${p.city || ''}`,
+              postcode: p.postcode,
+              status: p.status,
+              assignedZone: p.assigned_zone || 'Front Seat',
+              voiceNoteUrl: p.voice_note_url,
+              deliveryTimestamp: p.delivery_timestamp,
+              returnReason: p.return_reason,
+            } as unknown as ParcelStop;
+
+            setStops((prev) => [newStop, ...prev.filter((s) => s.id !== newStop.id)]);
+          } else if (payload.eventType === 'UPDATE') {
+            const p: any = payload.new;
+            setStops((prev) =>
+              prev.map((s) =>
+                s.id === p.id
+                  ? ({
+                      ...s,
+                      status: p.status,
+                      deliveryTimestamp: p.delivery_timestamp,
+                      voiceNoteUrl: p.voice_note_url,
+                      returnReason: p.return_reason,
+                      assignedZone: p.assigned_zone || s.assignedZone,
+                    } as ParcelStop)
+                  : s
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setStops((prev) => prev.filter((s) => s.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [userProfile?.id]);
+
   useEffect(() => {
     if (userProfile?.id && stops.length > 0) {
       saveParcelStopsToSupabase(stops).catch(() => {});
     }
   }, [stops, userProfile?.id]);
 
-  // Tax calculations
   const taxMetrics = calculateHMRCTaxMetrics(shiftHistory);
 
-  // Shift Handlers
   const handleStartShift = useCallback(
     (network: CourierNetwork, startOdo: number, agreedRate: number, bonus: number) => {
       triggerHapticFeedback('success');
@@ -480,7 +537,6 @@ export default function App() {
     [activeShift]
   );
 
-  // Parcel Handlers
   const handleConfirmDrop = useCallback((stopId: string, voiceNoteUrl?: string) => {
     triggerHapticFeedback('success');
     setStops((prev) =>
@@ -555,7 +611,6 @@ export default function App() {
   const pendingCount = stops.filter((s) => s.status === 'Pending').length;
   const returnsCount = stops.filter((s) => s.status === 'Returned').length;
 
-  // Dark Mode
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -564,7 +619,6 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Auth Screen: Strictly gates unconfirmed or non-logged-in users
   if (activeModule === 'auth' || !userProfile || !userProfile.id) {
     return (
       <div className="min-h-screen flex flex-col bg-canvas text-primary font-sans">
@@ -581,7 +635,6 @@ export default function App() {
             onComplete={() => setShowSplash(false)}
           />
         )}
-        {/* Set New Password Modal (rendered even if activeModule === 'auth') */}
         {isResettingPassword && (
           <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-surface border border-brand-cyan/40 rounded-2xl p-6 sm:p-7 w-full max-w-md shadow-2xl space-y-4">
@@ -884,7 +937,6 @@ export default function App() {
         />
       )}
 
-      {/* Set New Password Modal (rendered inside the active workstation layout) */}
       {isResettingPassword && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-surface border border-brand-cyan/40 rounded-2xl p-6 sm:p-7 w-full max-w-md shadow-2xl space-y-4">

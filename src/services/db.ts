@@ -51,7 +51,7 @@ export async function saveParcelStopsToSupabase(stops: ParcelStop[]) {
         voice_note_url: s.voiceNoteUrl,
         delivery_timestamp: s.deliveryTimestamp,
         return_reason: s.returnReason,
-        courier_id: courierId,
+        user_id: courierId,
       };
     });
 
@@ -74,18 +74,31 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
   try {
     const { data: userData } = await client.auth.getUser();
     const courierId = userData?.user?.id;
+    if (!courierId) return;
 
-    const payload = {
-      id: shift.id,
+    // Check if shift.id is an existing UUID from the DB
+    const isValidUuid =
+      typeof shift.id === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shift.id);
+
+    // Format today's date (YYYY-MM-DD) for HMRC and database date columns
+    const todayIsoDate = new Date().toISOString().split('T')[0];
+
+    const payload: any = {
       courier_id: courierId,
       platform: shift.network,
-      clock_in_time: shift.startTime,
-      clock_out_time: shift.endTime,
-      mileage_miles: shift.totalMilesDriven || shift.currentOdometer,
-      hourly_rate_gbp: shift.agreedBlockRate,
+      clock_in_time: shift.startTime || new Date().toISOString(),
+      clock_out_time: shift.endTime || null,
+      mileage_miles: shift.totalMilesDriven || shift.currentOdometer || 0,
+      hourly_rate_gbp: shift.agreedBlockRate || 0,
       status: shift.isActive ? 'Active' : 'Completed',
       depot_location: shift.notes?.replace('Depot: ', '') || 'UK Hub',
+      shift_date: todayIsoDate,
     };
+
+    if (isValidUuid) {
+      payload.id = shift.id;
+    }
 
     const { error } = await client.from('active_shifts').upsert(payload);
     if (error) {
