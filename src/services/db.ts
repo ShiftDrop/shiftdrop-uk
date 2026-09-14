@@ -76,15 +76,19 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
     const courierId = userData?.user?.id;
     if (!courierId) return;
 
-    // Check if shift.id is an existing UUID from the DB
+    // Check if shift.id is already a valid UUID v4
     const isValidUuid =
       typeof shift.id === 'string' &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shift.id);
 
-    // Format today's date (YYYY-MM-DD) for HMRC and database date columns
+    // Ensure a compliant UUID is always sent so PostgreSQL NOT NULL constraints are satisfied
+    const shiftId = isValidUuid ? shift.id : crypto.randomUUID();
+
+    // Format today's date (YYYY-MM-DD) to satisfy shift_date NOT NULL constraints
     const todayIsoDate = new Date().toISOString().split('T')[0];
 
     const payload: any = {
+      id: shiftId,
       courier_id: courierId,
       platform: shift.network,
       clock_in_time: shift.startTime || new Date().toISOString(),
@@ -95,10 +99,6 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
       depot_location: shift.notes?.replace('Depot: ', '') || 'UK Hub',
       shift_date: todayIsoDate,
     };
-
-    if (isValidUuid) {
-      payload.id = shift.id;
-    }
 
     const { error } = await client.from('active_shifts').upsert(payload);
     if (error) {
