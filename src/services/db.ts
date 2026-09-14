@@ -11,10 +11,6 @@ import {
 // LIVE SUPABASE DATA SERVICE (Production Backend / User-Scoped)
 // --------------------------------------------------------------------
 
-/**
- * Returns empty collections on initial boot.
- * Real records are queried dynamically and scoped to the active courier ID in App.tsx.
- */
 export async function loadInitialDataFromSupabase(): Promise<{
   stops: ParcelStop[];
   shifts: ActiveShift[];
@@ -27,9 +23,6 @@ export async function loadInitialDataFromSupabase(): Promise<{
   };
 }
 
-/**
- * Persists parcel stops associated with the authenticated courier
- */
 export async function saveParcelStopsToSupabase(stops: ParcelStop[]) {
   const client = getSupabaseClient();
   if (!client || !stops || stops.length === 0) return;
@@ -64,9 +57,6 @@ export async function saveParcelStopsToSupabase(stops: ParcelStop[]) {
   }
 }
 
-/**
- * Persists an active or completed delivery shift
- */
 export async function saveShiftToSupabase(shift: ActiveShift) {
   const client = getSupabaseClient();
   if (!client || !shift) return;
@@ -76,16 +66,17 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
     const courierId = userData?.user?.id;
     if (!courierId) return;
 
-    // Check if shift.id is already a valid UUID v4
     const isValidUuid =
       typeof shift.id === 'string' &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shift.id);
 
-    // Ensure a compliant UUID is always sent so PostgreSQL NOT NULL constraints are satisfied
     const shiftId = isValidUuid ? shift.id : crypto.randomUUID();
-
-    // Format today's date (YYYY-MM-DD) to satisfy shift_date NOT NULL constraints
     const todayIsoDate = new Date().toISOString().split('T')[0];
+
+    const plannedCount = shift.stops?.length || 0;
+    const completedCount = shift.stops?.filter((s) => s.status === 'Delivered').length || 0;
+    const undeliveredCount = shift.stops?.filter((s) => s.status === 'Returned').length || 0;
+    const grossEarnings = (shift.agreedBlockRate || 0) + (shift.bonusPay || 0);
 
     const payload: any = {
       id: shiftId,
@@ -95,10 +86,13 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
       clock_out_time: shift.endTime || null,
       mileage_miles: shift.totalMilesDriven || shift.currentOdometer || 0,
       hourly_rate_gbp: shift.agreedBlockRate || 0,
+      gross_earnings_gbp: grossEarnings,
       status: shift.isActive ? 'Active' : 'Completed',
       depot_location: shift.notes?.replace('Depot: ', '') || 'UK Hub',
       shift_date: todayIsoDate,
-      planned_drops: shift.stops?.length || 0,
+      planned_drops: plannedCount,
+      completed_drops: completedCount,
+      undelivered_drops: undeliveredCount,
     };
 
     const { error } = await client.from('active_shifts').upsert(payload);
@@ -110,9 +104,6 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
   }
 }
 
-/**
- * Persists registered vehicle records
- */
 export async function saveVehicleToSupabase(vehicle: RegisteredVehicle) {
   const client = getSupabaseClient();
   if (!client || !vehicle) return;
@@ -135,9 +126,6 @@ export async function saveVehicleToSupabase(vehicle: RegisteredVehicle) {
   }
 }
 
-/**
- * Persists fuel expense receipts and logs
- */
 export async function saveFuelExpenseToSupabase(expense: FuelExpenseLog) {
   const client = getSupabaseClient();
   if (!client || !expense) return;
