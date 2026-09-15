@@ -13,6 +13,8 @@ import {
   Award,
   Key,
   Calculator,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
 import {
   CourierNetwork,
@@ -65,7 +67,6 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
     activeShift ? activeShift.bonusPay : ''
   );
 
-  // Sync inputs if active shift state updates in background
   useEffect(() => {
     if (activeShift) {
       setStartOdoInput(activeShift.currentOdometer || '');
@@ -94,7 +95,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
     }
   };
 
-  // Dynamic calculations derived strictly from real shifts
+  // Dynamic calculations derived strictly from shifts
   const todayGross = activeShift?.isActive
     ? (activeShift.agreedBlockRate || 0) + (activeShift.bonusPay || 0)
     : 0;
@@ -106,7 +107,6 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
   const thisWeekGross = pastTotal + todayGross;
   const monthlyProjection = Math.round(thisWeekGross * 4.33);
 
-  // Safe numerical calculations for HMRC AMAP shield
   const totalAmapDeduction = Number(taxMetrics?.totalAmapMileageDeduction);
   const displayAmapDeduction = isNaN(totalAmapDeduction) ? 0 : totalAmapDeduction;
 
@@ -178,7 +178,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-spatial-loadin"
               onClick={() => onNavigateTo('loadin')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-extrabold transition-all shadow-lg hover:opacity-95 active:scale-95"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-extrabold transition-all shadow-lg hover:opacity-95 active:scale-95"
             >
               <Box className="w-4 h-4" />
               <span>Spatial Load-In</span>
@@ -367,7 +367,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-clock-in-action"
               onClick={handleLaunchShift}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>
@@ -478,6 +478,61 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Recent Logged Shifts Section */}
+      <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-3">
+        <div className="flex items-center justify-between border-b border-subtle pb-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-brand-emerald" />
+            <h2 className="text-sm font-bold text-primary uppercase tracking-wider font-mono">
+              Completed Block Logs & History
+            </h2>
+          </div>
+          <span className="text-xs font-mono text-secondary">
+            {shiftHistory.length} Block(s) Recorded
+          </span>
+        </div>
+
+        {shiftHistory.length === 0 ? (
+          <div className="py-8 text-center text-secondary text-xs font-mono">
+            No completed shifts logged yet. Once you tap "End Shift" on an active route, it will appear here.
+          </div>
+        ) : (
+          <div className="divide-y divide-subtle">
+            {shiftHistory.map((s) => (
+              <div key={s.id} className="py-3 flex items-center justify-between text-xs font-mono">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-primary">{s.network}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-subtle text-secondary font-sans">
+                      {new Date(s.startTime).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-secondary">
+                    Clocked in: {new Date(s.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                    {s.endTime && ` • Ended: ${new Date(s.endTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}
+                    {s.totalMilesDriven > 0 && ` • ${s.totalMilesDriven} miles driven`}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-sm font-black text-brand-emerald">
+                    £{(Number(s.agreedBlockRate || 0) + Number(s.bonusPay || 0)).toFixed(2)}
+                  </div>
+                  <span className="text-[10px] text-secondary font-sans flex items-center gap-1 justify-end">
+                    <CheckCircle2 className="w-3 h-3 text-brand-emerald" />
+                    Logged to HMRC
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
