@@ -11,6 +11,8 @@ import {
   MailCheck,
   KeyRound,
 } from 'lucide-react';
+import { Turnstile } from '@marsidev/react-turnstile';
+import { Capacitor } from '@capacitor/core';
 import { UserSessionProfile } from '../../types';
 import { 
   supabaseSignIn, 
@@ -20,6 +22,8 @@ import {
   getSupabaseClient,
 } from '../../services/supabase';
 import { triggerHapticFeedback, speakUkVoicePrompt } from '../../services/telemetry';
+
+const TURNSTILE_SITE_KEY = '0x4AAAAAAAE2NEC5J0YswiJrX';
 
 interface AuthPortalProps {
   userProfile: UserSessionProfile | null;
@@ -44,6 +48,9 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cloudflare Turnstile Token
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAwaitingVerification, setIsAwaitingVerification] = useState(false);
@@ -63,6 +70,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     setBadgeId('');
     setPhone('');
     setAvatarPreview(null);
+    setCaptchaToken(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -98,16 +106,57 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     triggerHapticFeedback('light');
     setMessage(null);
 
+    const client = getSupabaseClient();
+    if (!client) {
+      setMessage({ text: 'Database client not initialized. Please try again.', type: 'error' });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       if (authMode === 'login') {
-        const { profile, error } = await supabaseSignIn(email.trim(), password);
+        const { data, error } = await client.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+          options: {
+            captchaToken: captchaToken || undefined,
+          },
+        });
+
         if (error) {
-          setMessage({ text: error, type: 'error' });
+          setMessage({ text: error.message, type: 'error' });
           triggerHapticFeedback('warning');
           setIsLoading(false);
           return;
         }
-        if (profile) {
+
+        if (data.user) {
+          if (!data.user.email_confirmed_at) {
+            await client.auth.signOut();
+            setMessage({
+              text: 'Your email address has not been confirmed yet. Please verify your email before signing in.',
+              type: 'error',
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          const meta = data.user.user_metadata || {};
+          const derivedFullName = meta.full_name || meta.name || email.split('@')[0];
+          const isPro = meta.subscription_tier === 'pro' || meta.is_pro === true;
+
+          const profile: UserSessionProfile = {
+            id: data.user.id,
+            email: data.user.email || email,
+            fullName: derivedFullName,
+            courierLicenceNumber: meta.courier_licence_number || 'UK-HERMES-8829',
+            driverBadgeId: meta.driver_badge_id || 'GB-COURIER-2026',
+            phone: meta.phone || '+44 7700 900077',
+            isDemoUser: false,
+            avatarUrl: meta.avatar_url,
+            subscriptionTier: isPro ? 'pro' : 'free',
+          };
+
           resetFormFields();
           onUpdateUserProfile(profile);
           triggerHapticFeedback('success');
@@ -128,23 +177,33 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
         onUpdateUserProfile(null);
 
-        const res: any = await supabaseSignUp(cleanEmail, password, {
-          fullName: cleanName,
-          licenceNumber: licenceNumber.trim(),
-          badgeId: badgeId.trim(),
-          phone: phone.trim(),
-          avatarUrl: avatarPreview || undefined,
+        const redirectUrl = 'https://shiftdrop.co.uk/';
+        const { error } = await client.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            captchaToken: captchaToken || undefined,
+            data: {
+              full_name: cleanName,
+              name: cleanName,
+              courier_licence_number: licenceNumber.trim(),
+              driver_badge_id: badgeId.trim(),
+              phone: phone.trim(),
+              avatar_url: avatarPreview || undefined,
+            },
+            emailRedirectTo: redirectUrl,
+          },
         });
 
-        if (res?.error) {
-          setMessage({ text: res.error, type: 'error' });
+        if (error) {
+          setMessage({ text: error.message, type: 'error' });
           triggerHapticFeedback('warning');
           setIsLoading(false);
           return;
         }
 
         try {
-          await supabaseSignOut();
+          await client.auth.signOut();
         } catch (err) {}
 
         onUpdateUserProfile(null);
@@ -185,6 +244,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     try {
       const { error } = await client.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: 'https://shiftdrop.co.uk',
+        captchaToken: captchaToken || undefined,
       });
 
       setIsSendingReset(false);
@@ -522,10 +582,26 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             </div>
           )}
 
+          {/* Cloudflare Turnstile Bot Shield (active on web browsers) */}
+          {!Capacitor.isNativePlatform() && (
+            <div className="my-3 flex justify-center">
+              <Turnstile
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={(token) => setCaptchaToken(token)}
+                onError={() => setCaptchaToken(null)}
+                onExpire={() => setCaptchaToken(null)}
+                options={{
+                  theme: 'dark',
+                  size: 'flexible',
+                }}
+              />
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-6 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+            className="w-full mt-4 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-canvas/30 border-t-canvas rounded-full animate-spin" />
@@ -583,6 +659,18 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   className="w-full bg-inset border border-subtle rounded-xl py-3 pl-10 pr-4 text-sm text-primary focus:outline-none focus:border-brand-cyan"
                 />
               </div>
+
+              {!Capacitor.isNativePlatform() && (
+                <div className="my-2 flex justify-center">
+                  <Turnstile
+                    siteKey={TURNSTILE_SITE_KEY}
+                    onSuccess={(token) => setCaptchaToken(token)}
+                    onError={() => setCaptchaToken(null)}
+                    onExpire={() => setCaptchaToken(null)}
+                    options={{ theme: 'dark', size: 'flexible' }}
+                  />
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button

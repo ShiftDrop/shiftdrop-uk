@@ -214,6 +214,37 @@ export default function App() {
     restoreSessionAndHandleVerification();
   }, []);
 
+  // 15-Minute Background Inactivity Auto-Lock
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let backgroundEpoch = Date.now();
+
+    const checkLock = async () => {
+      const isBioEnabled = localStorage.getItem('shiftDrop_biometrics_enabled') === 'true';
+      if (!isBioEnabled) return;
+
+      const elapsedMinutes = (Date.now() - backgroundEpoch) / (1000 * 60);
+      if (elapsedMinutes >= 15) {
+        try {
+          const { authenticateWithBiometrics } = await import('./services/biometrics');
+          await authenticateWithBiometrics('Session timed out. Re-authenticate to access ShiftDrop.');
+        } catch {}
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        backgroundEpoch = Date.now();
+      } else {
+        checkLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
   useEffect(() => {
     const client = getSupabaseClient();
     if (!client) return;
