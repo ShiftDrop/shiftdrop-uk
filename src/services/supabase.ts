@@ -191,6 +191,8 @@ export async function supabaseSignIn(email: string, password: string): Promise<{
 
       const meta = data.user.user_metadata || {};
       const derivedFullName = meta.full_name || meta.name || email.split('@')[0];
+      const isPro = meta.subscription_tier === 'pro' || meta.is_pro === true;
+
       const profile: UserSessionProfile = {
         id: data.user.id,
         email: data.user.email || email,
@@ -200,6 +202,7 @@ export async function supabaseSignIn(email: string, password: string): Promise<{
         phone: meta.phone || '+44 7700 900077',
         isDemoUser: false,
         avatarUrl: meta.avatar_url,
+        subscriptionTier: isPro ? 'pro' : 'free',
       };
       return { profile, error: null };
     }
@@ -227,7 +230,6 @@ export async function supabaseSignUp(
   }
 
   try {
-    // Strictly route email verification to your live production domain
     const redirectUrl = 'https://shiftdrop.co.uk/';
 
     const { data, error } = await client.auth.signUp({
@@ -250,7 +252,6 @@ export async function supabaseSignUp(
       return { profile: null, error: error.message };
     }
 
-    // Force sign out immediately so unconfirmed sessions cannot bypass verification
     await client.auth.signOut();
 
     if (typeof window !== 'undefined') {
@@ -305,6 +306,8 @@ export function onSupabaseAuthStateChange(callback: (profile: UserSessionProfile
     if (session?.user && session.user.email_confirmed_at) {
       const meta = session.user.user_metadata || {};
       const derivedFullName = meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Courier Driver';
+      const isPro = meta.subscription_tier === 'pro' || meta.is_pro === true;
+
       const profile: UserSessionProfile = {
         id: session.user.id,
         email: session.user.email || '',
@@ -314,6 +317,7 @@ export function onSupabaseAuthStateChange(callback: (profile: UserSessionProfile
         phone: meta.phone || '+44 7700 900077',
         isDemoUser: false,
         avatarUrl: meta.avatar_url,
+        subscriptionTier: isPro ? 'pro' : 'free',
       };
       callback(profile);
     } else {
@@ -362,9 +366,7 @@ export async function supabaseUploadReceipt(
           .getPublicUrl(storagePath);
         return publicUrlData.publicUrl;
       }
-    } catch (e) {
-      console.warn('Storage upload failed', e);
-    }
+    } catch {}
   }
 
   return typeof file === 'string' ? file : URL.createObjectURL(file);
@@ -394,9 +396,7 @@ export async function supabaseUploadVoiceNote(
           .getPublicUrl(storagePath);
         return publicUrlData.publicUrl;
       }
-    } catch (e) {
-      console.warn('Voice note upload failed', e);
-    }
+    } catch {}
   }
 
   return URL.createObjectURL(audioBlob);
@@ -434,9 +434,7 @@ export async function supabaseUploadEvidencePhoto(
           .getPublicUrl(storagePath);
         return publicUrlData.publicUrl;
       }
-    } catch (e) {
-      console.warn('Evidence photo upload failed', e);
-    }
+    } catch {}
   }
 
   return typeof photoData === 'string' ? photoData : URL.createObjectURL(photoData);
@@ -492,6 +490,7 @@ export const DEMO_USER_PROFILE: UserSessionProfile = {
   phone: '+44 7700 900551',
   isDemoUser: true,
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  subscriptionTier: 'free',
 };
 
 // --------------------------------------------------------------------
