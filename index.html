@@ -18,13 +18,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ShiftDrop" />
 
-    <!-- Standard & High-Res Favicons -->
+    <!-- Web App Manifest (Required for Android PWA Install) -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Standard, High-Res & Mobile Launcher Icons -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-v2.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-v2.png" />
 
-    <!-- iOS Homescreen Touch Icon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- iOS & Android Fallback Homescreen Touch Icon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-v2.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
