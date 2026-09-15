@@ -23,8 +23,8 @@ import {
 } from '../../services/supabase';
 import { triggerHapticFeedback, speakUkVoicePrompt } from '../../services/telemetry';
 
-// Cloudflare Turnstile Universal Always-Pass Test Key (bypasses domain restrictions)
-const TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
+// Production Cloudflare Turnstile Site Key
+const TURNSTILE_SITE_KEY = '0x4AAAAAAE2Qrn52Fm7OuhuA';
 
 interface AuthPortalProps {
   userProfile: UserSessionProfile | null;
