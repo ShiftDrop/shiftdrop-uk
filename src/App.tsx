@@ -93,13 +93,16 @@ export default function App() {
   const [isCollapsedDesktop, setIsCollapsedDesktop] = useState(false);
   const [activePortal, setActivePortal] = useState<'landing' | 'studio' | null>(null);
 
-  const [isNativePro, setIsNativePro] = useState(false);
+  const [isNativePro, setIsNativePro] = useState(() => {
+    return localStorage.getItem('shiftDrop_isPro') === 'true';
+  });
 
   const isProUser =
     isNativePro ||
     userProfile?.subscriptionTier === 'pro' ||
     (userProfile as any)?.subscription_tier === 'pro' ||
     (userProfile as any)?.is_pro === true ||
+    localStorage.getItem('shiftDrop_isPro') === 'true' ||
     localStorage.getItem(getScopedKey('isPro', userProfile?.id)) === 'true';
 
   const [stops, setStops] = useState<ParcelStop[]>([]);
@@ -244,14 +247,25 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgrade') === 'success') {
-      if (userProfile?.id) {
-        localStorage.setItem(getScopedKey('isPro', userProfile.id), 'true');
-      }
+      setIsNativePro(true);
       localStorage.setItem('shiftDrop_isPro', 'true');
 
-      // Update Supabase Cloud User Metadata
+      let courierId = userProfile?.id;
+      if (!courierId) {
+        const saved = localStorage.getItem('shiftDrop_driver_profile');
+        if (saved) {
+          try {
+            courierId = JSON.parse(saved).id;
+          } catch {}
+        }
+      }
+
+      if (courierId) {
+        localStorage.setItem(getScopedKey('isPro', courierId), 'true');
+      }
+
       const client = getSupabaseClient();
-      if (client && userProfile?.id) {
+      if (client) {
         client.auth.updateUser({
           data: { subscription_tier: 'pro', is_pro: true },
         }).catch((err) => console.warn('Could not sync Pro status to auth metadata:', err));
@@ -263,6 +277,7 @@ export default function App() {
           subscriptionTier: 'pro',
         });
       }
+
       triggerHapticFeedback('success');
       speakUkVoicePrompt('ShiftDrop PRO activated! All vaults unlocked.');
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -343,7 +358,6 @@ export default function App() {
         let lon = -2.2426;
         let city = 'UK Region';
 
-        // Check local storage for cached coordinates first
         const cachedGeo = localStorage.getItem('shiftDrop_cached_geo');
         if (cachedGeo) {
           try {
@@ -356,9 +370,9 @@ export default function App() {
 
         try {
           const pos = await Geolocation.getCurrentPosition({
-            enableHighAccuracy: false, // Low accuracy is significantly faster on desktop browsers
+            enableHighAccuracy: false,
             timeout: 12000,
-            maximumAge: 600000, // 10 minutes cache
+            maximumAge: 600000,
           });
           lat = pos.coords.latitude;
           lon = pos.coords.longitude;
@@ -911,10 +925,10 @@ export default function App() {
             <ProUpgrade
               onUpgradeComplete={() => {
                 setIsNativePro(true);
+                localStorage.setItem('shiftDrop_isPro', 'true');
                 if (userProfile?.id) {
                   localStorage.setItem(getScopedKey('isPro', userProfile.id), 'true');
                 }
-                localStorage.setItem('shiftDrop_isPro', 'true');
                 handleNavigateToModule('hub');
               }}
             />
