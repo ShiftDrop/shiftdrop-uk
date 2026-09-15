@@ -178,7 +178,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
         onUpdateUserProfile(null);
 
-        const redirectUrl = 'https://shiftdrop.co.uk/';
+        const redirectUrl = Capacitor.isNativePlatform()
+          ? 'com.pixelnotchstudio.shiftdroppro://auth/callback'
+          : 'https://shiftdrop.co.uk/';
+
         const { error } = await client.auth.signUp({
           email: cleanEmail,
           password,
@@ -243,8 +246,12 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
     }
 
     try {
+      const redirectUrl = Capacitor.isNativePlatform()
+        ? 'com.pixelnotchstudio.shiftdroppro://auth/callback'
+        : 'https://shiftdrop.co.uk';
+
       const { error } = await client.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: 'https://shiftdrop.co.uk',
+        redirectTo: redirectUrl,
         captchaToken: captchaToken || undefined,
       });
 
@@ -583,21 +590,19 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             </div>
           )}
 
-          {/* Cloudflare Turnstile Bot Shield */}
-          {!Capacitor.isNativePlatform() && (
-            <div className="my-3 flex justify-center">
-              <Turnstile
-                siteKey={TURNSTILE_SITE_KEY}
-                onSuccess={(token) => setCaptchaToken(token)}
-                onError={() => setCaptchaToken(null)}
-                onExpire={() => setCaptchaToken(null)}
-                options={{
-                  theme: 'dark',
-                  size: 'flexible',
-                }}
-              />
-            </div>
-          )}
+          {/* Cloudflare Turnstile Bot Shield - Active across Web and Mobile */}
+          <div className="my-3 flex justify-center">
+            <Turnstile
+              siteKey={TURNSTILE_SITE_KEY}
+              onSuccess={(token) => setCaptchaToken(token)}
+              onError={() => setCaptchaToken(null)}
+              onExpire={() => setCaptchaToken(null)}
+              options={{
+                theme: 'dark',
+                size: 'flexible',
+              }}
+            />
+          </div>
 
           <button
             type="submit"
@@ -661,17 +666,15 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                 />
               </div>
 
-              {!Capacitor.isNativePlatform() && (
-                <div className="my-2 flex justify-center">
-                  <Turnstile
-                    siteKey={TURNSTILE_SITE_KEY}
-                    onSuccess={(token) => setCaptchaToken(token)}
-                    onError={() => setCaptchaToken(null)}
-                    onExpire={() => setCaptchaToken(null)}
-                    options={{ theme: 'dark', size: 'flexible' }}
-                  />
-                </div>
-              )}
+              <div className="my-2 flex justify-center">
+                <Turnstile
+                  siteKey={TURNSTILE_SITE_KEY}
+                  onSuccess={(token) => setCaptchaToken(token)}
+                  onError={() => setCaptchaToken(null)}
+                  onExpire={() => setCaptchaToken(null)}
+                  options={{ theme: 'dark', size: 'flexible' }}
+                />
+              </div>
 
               <div className="flex gap-3 pt-2">
                 <button
