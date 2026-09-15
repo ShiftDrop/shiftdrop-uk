@@ -255,7 +255,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   type: 'success',
                 });
               }}
-              className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-black text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all shadow-md shadow-cyan-500/20"
+              className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-black text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all shadow-md shadow-cyan-500/20 cursor-pointer"
             >
               Return to Sign In
             </button>
@@ -293,14 +293,14 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           <div className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               onClick={onContinueToHub}
-              className="w-full py-3.5 rounded-xl bg-brand-cyan text-canvas font-black text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 shadow-md shadow-cyan-500/20"
+              className="w-full py-3.5 rounded-xl bg-brand-cyan text-canvas font-black text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 shadow-md shadow-cyan-500/20 cursor-pointer"
             >
               <span>Enter Workstation</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
               onClick={handleSignOut}
-              className="w-full py-3.5 rounded-xl bg-inset text-primary border border-subtle font-bold text-sm hover:bg-subtle active:scale-95 transition-all"
+              className="w-full py-3.5 rounded-xl bg-inset text-primary border border-subtle font-bold text-sm hover:bg-subtle active:scale-95 transition-all cursor-pointer"
             >
               Sign Out Securely
             </button>
@@ -342,7 +342,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             type="button"
             onClick={() => handleOAuthLogin('google')}
             disabled={isLoading}
-            className="w-full py-2.5 rounded-xl bg-inset border border-subtle text-primary font-bold text-sm flex items-center justify-center gap-2 hover:bg-subtle active:scale-95 transition-all"
+            className="w-full py-2.5 rounded-xl bg-inset border border-subtle text-primary font-bold text-sm flex items-center justify-center gap-2 hover:bg-subtle active:scale-95 transition-all cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -356,7 +356,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             type="button"
             onClick={() => handleOAuthLogin('apple')}
             disabled={isLoading}
-            className="w-full py-2.5 rounded-xl bg-primary text-canvas font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all"
+            className="w-full py-2.5 rounded-xl bg-primary text-canvas font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all cursor-pointer"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.6-2.2.34-3.08-.34C4.48 16.93 2.76 11.53 5 8.78c1.06-1.3 2.45-2.13 3.97-2.16 1.34-.05 2.6.88 3.43.88.85 0 2.37-1.14 3.98-1 1.3.06 2.46.52 3.33 1.41-2.8 1.63-2.31 5.56.5 6.63-.7 1.76-1.55 3.55-3.16 5.72zm-4.32-12.7c-.24-1.6 1.05-3.28 2.66-3.58.33 1.76-1.2 3.4-2.66 3.58z" />
@@ -379,7 +379,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               setMessage(null); 
               resetFormFields();
             }}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
               authMode === 'login' ? 'bg-surface text-primary shadow-sm' : 'text-secondary hover:text-primary'
             }`}
           >
@@ -392,7 +392,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               setMessage(null); 
               resetFormFields();
             }}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
               authMode === 'signup' ? 'bg-surface text-primary shadow-sm' : 'text-secondary hover:text-primary'
             }`}
           >
@@ -417,11 +417,13 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                 <button 
                   type="button" 
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-xs font-bold text-brand-cyan uppercase tracking-wide font-mono"
+                  className="text-xs font-bold text-brand-cyan uppercase tracking-wide font-mono cursor-pointer"
                 >
                   Upload Photo
                 </button>
                 <input 
+                  id="auth-avatar-upload"
+                  name="avatar"
                   type="file" 
                   ref={fileInputRef} 
                   onChange={handleAvatarChange} 
@@ -431,9 +433,13 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               </div>
 
               <div className="relative">
-                <User className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+                <label htmlFor="auth-fullname" className="sr-only">Full Legal Name</label>
+                <User className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
+                  id="auth-fullname"
+                  name="name"
                   type="text"
+                  autoComplete="name"
                   placeholder="Full Legal Name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -445,9 +451,13 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           )}
 
           <div className="relative">
-            <Mail className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+            <label htmlFor="auth-email" className="sr-only">Email Address</label>
+            <Mail className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
+              id="auth-email"
+              name="email"
               type="email"
+              autoComplete="email"
               placeholder="Email Address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -457,9 +467,13 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           </div>
 
           <div className="relative">
-            <Lock className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+            <label htmlFor="auth-password" className="sr-only">Password</label>
+            <Lock className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
+              id="auth-password"
+              name="password"
               type="password"
+              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -477,7 +491,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                   setResetStatus(null);
                   setIsForgotPassword(true);
                 }}
-                className="text-xs text-brand-cyan hover:underline transition-colors font-medium"
+                className="text-xs text-brand-cyan hover:underline transition-colors font-medium cursor-pointer"
               >
                 Forgot password?
               </button>
@@ -491,9 +505,13 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               </p>
               <div className="space-y-3">
                 <div className="relative">
-                  <ShieldCheck className="w-4 h-4 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+                  <label htmlFor="auth-licence-number" className="sr-only">UK Driver Licence Number</label>
+                  <ShieldCheck className="w-4 h-4 text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    id="auth-licence-number"
+                    name="licenceNumber"
                     type="text"
+                    autoComplete="off"
                     placeholder="UK Driver Licence Number"
                     value={licenceNumber}
                     onChange={(e) => setLicenceNumber(e.target.value)}
@@ -507,7 +525,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-6 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+            className="w-full mt-6 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-canvas/30 border-t-canvas rounded-full animate-spin" />
@@ -551,9 +569,13 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
             <form onSubmit={handlePasswordResetSubmit} className="space-y-4 pt-1">
               <div className="relative">
-                <Mail className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+                <label htmlFor="auth-reset-email" className="sr-only">Registered Email Address</label>
+                <Mail className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
+                  id="auth-reset-email"
+                  name="resetEmail"
                   type="email"
+                  autoComplete="email"
                   required
                   placeholder="Registered Email Address"
                   value={resetEmail}
@@ -569,14 +591,14 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                     setIsForgotPassword(false);
                     setResetStatus(null);
                   }}
-                  className="flex-1 py-3 rounded-xl bg-inset border border-subtle text-primary font-bold text-xs hover:bg-subtle active:scale-95 transition-all"
+                  className="flex-1 py-3 rounded-xl bg-inset border border-subtle text-primary font-bold text-xs hover:bg-subtle active:scale-95 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSendingReset}
-                  className="flex-1 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isSendingReset ? (
                     <div className="w-4 h-4 border-2 border-canvas/30 border-t-canvas rounded-full animate-spin" />
