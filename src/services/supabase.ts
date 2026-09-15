@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { UserSessionProfile } from '../types';
 
 let supabaseClient: SupabaseClient | null = null;
@@ -160,10 +163,68 @@ export async function testSupabaseConnection(url: string, key: string): Promise<
 }
 
 // --------------------------------------------------------------------
+// CAPACITOR NATIVE DEEP-LINK LIFECYCLE LISTENER
+// --------------------------------------------------------------------
+
+let appUrlListenerAttached = false;
+
+export function setupAppUrlListener(): () => void {
+  if (!Capacitor.isNativePlatform() || appUrlListenerAttached) {
+    return () => {};
+  }
+
+  appUrlListenerAttached = true;
+  const listenerPromise = App.addListener('appUrlOpen', async (event) => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+      await Browser.close();
+    } catch {}
+
+    const url = event.url;
+    
+    // Parse OAuth tokens returned in hash fragment (#access_token=...&refresh_token=...)
+    if (url.includes('#')) {
+      const hash = url.split('#')[1];
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        await client.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        return;
+      }
+    }
+
+    // Parse PKCE code flow (?code=...)
+    if (url.includes('code=')) {
+      const parsedUrl = new URL(url);
+      const code = parsedUrl.searchParams.get('code');
+      if (code) {
+        await client.auth.exchangeCodeForSession(code);
+      }
+    }
+  });
+
+  return () => {
+    listenerPromise.then((sub) => sub.remove());
+    appUrlListenerAttached = false;
+  };
+}
+
+// --------------------------------------------------------------------
 // SUPABASE AUTHENTICATION
 // --------------------------------------------------------------------
 
-export async function supabaseSignIn(email: string, password: string): Promise<{ profile: UserSessionProfile | null; error: string | null; mfaRequired?: boolean }> {
+export async function supabaseSignIn(
+  email: string, 
+  password: string, 
+  captchaToken?: string | null
+): Promise<{ profile: UserSessionProfile | null; error: string | null; mfaRequired?: boolean }> {
   const client = getSupabaseClient();
   if (!client) {
     return { profile: null, error: 'Database uninitialised. Please check your connection.' };
@@ -173,6 +234,9 @@ export async function supabaseSignIn(email: string, password: string): Promise<{
     const { data, error } = await client.auth.signInWithPassword({
       email: email.trim(),
       password: password,
+      options: {
+        captchaToken: captchaToken || undefined,
+      },
     });
 
     if (error) {
@@ -230,7 +294,8 @@ export async function supabaseSignUp(
     badgeId?: string;
     phone?: string;
     avatarUrl?: string;
-  }
+  },
+  captchaToken?: string | null
 ): Promise<{ profile: UserSessionProfile | null; error: string | null; isAwaitingVerification?: boolean }> {
   const client = getSupabaseClient();
   if (!client) {
@@ -238,12 +303,15 @@ export async function supabaseSignUp(
   }
 
   try {
-    const redirectUrl = 'https://shiftdrop.co.uk/';
+    const redirectUrl = Capacitor.isNativePlatform() 
+      ? 'com.pixelnotchstudio.shiftdroppro://auth/callback' 
+      : 'https://shiftdrop.co.uk/';
 
     const { data, error } = await client.auth.signUp({
-      email: email.trim(),
+      email: cleanEmail(email),
       password: password,
       options: {
+        captchaToken: captchaToken || undefined,
         data: {
           full_name: metadata.fullName,
           name: metadata.fullName,
@@ -277,6 +345,10 @@ export async function supabaseSignUp(
   }
 }
 
+function cleanEmail(val: string): string {
+  return val.trim().toLowerCase();
+}
+
 export async function supabaseSignOut(): Promise<void> {
   const client = getSupabaseClient();
   if (client) {
@@ -293,13 +365,26 @@ export async function supabaseSignInWithOAuth(provider: 'google' | 'apple'): Pro
   }
 
   try {
-    const { error } = await client.auth.signInWithOAuth({
+    const isNative = Capacitor.isNativePlatform();
+    const redirectTo = isNative
+      ? 'com.pixelnotchstudio.shiftdroppro://auth/callback'
+      : (typeof window !== 'undefined' ? window.location.origin : 'https://shiftdrop.co.uk');
+
+    const { data, error } = await client.auth.signInWithOAuth({
       provider: provider,
       options: {
-        redirectTo: window.location.origin,
+        redirectTo,
+        skipBrowserRedirect: isNative,
       },
     });
+
     if (error) return { error: error.message };
+
+    // On native Android/iOS, open the authentication URL in a Chrome Custom Tab
+    if (isNative && data?.url) {
+      await Browser.open({ url: data.url, windowName: '_self' });
+    }
+
     return { error: null };
   } catch (err: any) {
     return { error: err.message || 'OAuth initialisation failed' };

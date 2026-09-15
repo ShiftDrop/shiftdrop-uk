@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { ShieldCheck, CheckCircle2, KeyRound } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, KeyRound, Lock, AlertCircle } from 'lucide-react';
 import {
   ActiveModuleId,
   ParcelStop,
@@ -46,7 +46,11 @@ import {
 } from './services/db';
 import { calculateHMRCTaxMetrics } from './services/hmrc';
 import { fetchUkWeatherTelemetry, triggerHapticFeedback, speakUkVoicePrompt } from './services/telemetry';
-import { onSupabaseAuthStateChange, getSupabaseClient } from './services/supabase';
+import { 
+  onSupabaseAuthStateChange, 
+  getSupabaseClient,
+  setupAppUrlListener,
+} from './services/supabase';
 import { setupRevenueCat, checkProStatus } from './services/billing';
 
 const PRO_ONLY_MODULES: ActiveModuleId[] = [
@@ -78,6 +82,14 @@ export default function App() {
 
   // PWA Install Prompt Listener
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+
+  // Native Deep Link / URL Scheme Listener for Capacitor
+  useEffect(() => {
+    const cleanupDeepLinks = setupAppUrlListener();
+    return () => {
+      cleanupDeepLinks();
+    };
+  }, []);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -770,6 +782,40 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Handle Setting New Password from Recovery Flow
+  const handleUpdateNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPasswordInput || newPasswordInput.length < 6) {
+      setResetPasswordError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    setResetPasswordLoading(true);
+    setResetPasswordError('');
+
+    try {
+      const { error } = await client.auth.updateUser({
+        password: newPasswordInput,
+      });
+
+      if (error) throw error;
+
+      setIsResettingPassword(false);
+      setNewPasswordInput('');
+      triggerHapticFeedback('success');
+      speakUkVoicePrompt('Password updated successfully. Session active.');
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch (err: any) {
+      setResetPasswordError(err.message || 'Unable to update password.');
+      triggerHapticFeedback('warning');
+    } finally {
+      setResetPasswordLoading(false);
+    }
+  };
+
   // MFA Challenge Overlay Submit Handler
   const handleVerifyMfaChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -809,6 +855,58 @@ export default function App() {
       setMfaChallengeLoading(false);
     }
   };
+
+  // Dedicated Password Recovery Overlay
+  if (isResettingPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-canvas text-primary font-sans">
+        <div className="bg-surface border border-brand-cyan/40 rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/30 flex items-center justify-center shrink-0">
+              <KeyRound className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-primary">Set New Password</h3>
+              <p className="text-xs text-secondary">
+                Enter a secure new password for your ShiftDrop account.
+              </p>
+            </div>
+          </div>
+
+          {resetPasswordError && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{resetPasswordError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleUpdateNewPassword} className="space-y-4">
+            <div className="relative">
+              <Lock className="w-5 h-5 text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="password"
+                required
+                minLength={6}
+                autoFocus
+                placeholder="New Password (min 6 chars)"
+                value={newPasswordInput}
+                onChange={(e) => setNewPasswordInput(e.target.value)}
+                className="w-full bg-inset border border-subtle rounded-xl py-3 pl-10 pr-4 text-sm text-primary focus:outline-none focus:border-brand-cyan"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={resetPasswordLoading || newPasswordInput.length < 6}
+              className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-black text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer shadow-md shadow-cyan-500/20"
+            >
+              {resetPasswordLoading ? 'Updating Password...' : 'Save & Continue'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (activeModule === 'auth' || !userProfile || !userProfile.id || isMfaChallenged) {
     return (
