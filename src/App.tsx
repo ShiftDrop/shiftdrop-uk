@@ -69,6 +69,19 @@ export default function App() {
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState('');
 
+  // PWA Install Prompt Listener
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
   useEffect(() => {
     if (userProfile?.id && activeModule && activeModule !== 'auth' && activeModule !== 'pro') {
       localStorage.setItem(getScopedKey('active_module', userProfile.id), activeModule);
@@ -227,6 +240,7 @@ export default function App() {
     syncNativeBilling();
   }, [userProfile?.id]);
 
+  // Handle Pro Upgrade Web Redirect and sync permanently with Supabase Auth
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgrade') === 'success') {
@@ -234,6 +248,15 @@ export default function App() {
         localStorage.setItem(getScopedKey('isPro', userProfile.id), 'true');
       }
       localStorage.setItem('shiftDrop_isPro', 'true');
+
+      // Update Supabase Cloud User Metadata
+      const client = getSupabaseClient();
+      if (client && userProfile?.id) {
+        client.auth.updateUser({
+          data: { subscription_tier: 'pro', is_pro: true },
+        }).catch((err) => console.warn('Could not sync Pro status to auth metadata:', err));
+      }
+
       if (userProfile) {
         handleUpdateUserProfile({
           ...userProfile,
@@ -312,7 +335,7 @@ export default function App() {
     isGeofencedAutoCheckInEnabled: true,
   });
 
-  // Fetch Live Weather Telemetry via GPS Geolocation
+  // Fetch Live Weather Telemetry with Cached Geo & Silent Fallback
   useEffect(() => {
     async function loadLiveWeather() {
       try {
@@ -320,16 +343,29 @@ export default function App() {
         let lon = -2.2426;
         let city = 'UK Region';
 
+        // Check local storage for cached coordinates first
+        const cachedGeo = localStorage.getItem('shiftDrop_cached_geo');
+        if (cachedGeo) {
+          try {
+            const parsed = JSON.parse(cachedGeo);
+            lat = parsed.lat;
+            lon = parsed.lon;
+            city = parsed.city || 'Current Location';
+          } catch {}
+        }
+
         try {
           const pos = await Geolocation.getCurrentPosition({
-            enableHighAccuracy: true,
-            timeout: 8000,
+            enableHighAccuracy: false, // Low accuracy is significantly faster on desktop browsers
+            timeout: 12000,
+            maximumAge: 600000, // 10 minutes cache
           });
           lat = pos.coords.latitude;
           lon = pos.coords.longitude;
           city = 'Current Location';
-        } catch (geoErr) {
-          console.info('Using region fallback coordinates:', geoErr);
+          localStorage.setItem('shiftDrop_cached_geo', JSON.stringify({ lat, lon, city }));
+        } catch {
+          // Quietly fallback without throwing console errors
         }
 
         const data = await fetchUkWeatherTelemetry(lat, lon, city);
@@ -531,6 +567,10 @@ export default function App() {
     setActiveModule('hub');
   }, [activeShift]);
 
+  const handleDeleteShiftFromState = useCallback((shiftId: string) => {
+    setShiftHistory((prev) => prev.filter((s) => s.id !== shiftId));
+  }, []);
+
   const handleUpdateOdometer = useCallback(
     (newOdo: number) => {
       if (!activeShift) return;
@@ -700,7 +740,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={resetPasswordLoading}
-                  className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center"
+                  className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer"
                 >
                   {resetPasswordLoading ? 'Updating Password...' : 'Save New Password'}
                 </button>
@@ -860,7 +900,11 @@ export default function App() {
           )}
 
           {activeModule === 'hmrc' && (
-            <HMRCVault shifts={shiftHistory} taxMetrics={taxMetrics} />
+            <HMRCVault
+              shifts={shiftHistory}
+              taxMetrics={taxMetrics}
+              onDeleteShift={handleDeleteShiftFromState}
+            />
           )}
 
           {activeModule === 'pro' && (
@@ -1002,7 +1046,7 @@ export default function App() {
               <button
                 type="submit"
                 disabled={resetPasswordLoading}
-                className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center"
+                className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer"
               >
                 {resetPasswordLoading ? 'Updating Password...' : 'Save New Password'}
               </button>
