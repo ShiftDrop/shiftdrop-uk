@@ -21,18 +21,23 @@ export async function setupRevenueCat(userId?: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
   if (!isKeyConfigured()) {
-    console.info('RevenueCat: Native configuration skipped (no active Google key).');
     return;
   }
 
   try {
-    await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-    await Purchases.configure({
-      apiKey: REVENUECAT_GOOGLE_API_KEY,
-      appUserID: userId && userId.trim().length > 0 ? userId : undefined,
-    });
+    const isConfigured = await Purchases.isConfigured();
+    if (!isConfigured.isConfigured) {
+      await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+      await Purchases.configure({
+        apiKey: REVENUECAT_GOOGLE_API_KEY,
+        appUserID: userId && userId.trim().length > 0 ? userId : undefined,
+      });
+    } else if (userId && userId.trim().length > 0) {
+      // If already configured anonymously, associate with the authenticated user ID
+      await Purchases.logIn({ appUserID: userId });
+    }
   } catch (error) {
-    console.warn('RevenueCat initialisation failed:', error);
+    // Graceful fallback if offline
   }
 }
 
@@ -42,8 +47,7 @@ export async function checkProStatus(): Promise<boolean> {
   try {
     const { customerInfo } = await Purchases.getCustomerInfo();
     return typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== 'undefined';
-  } catch (err) {
-    console.warn('Unable to query RevenueCat customer entitlements:', err);
+  } catch {
     return false;
   }
 }
@@ -56,10 +60,7 @@ export async function fetchProPackage(): Promise<PurchasesPackage | null> {
     if (offerings.current && offerings.current.monthly) {
       return offerings.current.monthly;
     }
-    console.warn('RevenueCat: Current offering or monthly package is missing.', offerings);
-  } catch (error) {
-    console.error('Failed to retrieve RevenueCat offerings:', error);
-  }
+  } catch {}
   return null;
 }
 
@@ -80,19 +81,16 @@ export async function purchasePro(
 
   // Native Android checkout: Google Play Billing via RevenueCat
   if (!isKeyConfigured()) {
-    console.warn('Cannot initiate purchase: RevenueCat key not configured.');
     return false;
   }
 
   try {
     let targetPackage = pkg;
     if (!targetPackage) {
-      console.info('No package passed to purchasePro, fetching active offering...');
       targetPackage = await fetchProPackage();
     }
 
     if (!targetPackage) {
-      console.error('Purchase aborted: Unable to resolve a valid monthly package.');
       return false;
     }
 
@@ -104,9 +102,6 @@ export async function purchasePro(
     const { customerInfo } = await (Purchases as any).purchasePackage(purchasePayload);
     return typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== 'undefined';
   } catch (error: any) {
-    if (!error.userCancelled) {
-      console.error('Purchase transaction failed:', error);
-    }
     return false;
   }
 }
@@ -117,8 +112,7 @@ export async function restoreProPurchases(): Promise<boolean> {
   try {
     const { customerInfo } = await Purchases.restorePurchases();
     return typeof customerInfo.entitlements.active[ENTITLEMENT_ID] !== 'undefined';
-  } catch (error) {
-    console.error('Failed to restore purchases:', error);
+  } catch {
     return false;
   }
 }
