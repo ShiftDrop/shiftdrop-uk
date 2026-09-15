@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, KeyRound } from 'lucide-react';
 import {
   ActiveModuleId,
   ParcelStop,
@@ -69,6 +69,12 @@ export default function App() {
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState('');
+
+  // MFA Challenge State
+  const [isMfaChallenged, setIsMfaChallenged] = useState(false);
+  const [mfaChallengeCode, setMfaChallengeCode] = useState('');
+  const [mfaChallengeLoading, setMfaChallengeLoading] = useState(false);
+  const [mfaChallengeError, setMfaChallengeError] = useState('');
 
   // PWA Install Prompt Listener
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
@@ -180,6 +186,17 @@ export default function App() {
 
       const { data } = await client.auth.getSession();
       if (data.session?.user && data.session.user.email_confirmed_at) {
+        // Check if an unverified MFA challenge is pending
+        const factors = await client.auth.mfa.listFactors();
+        const verifiedFactor = factors.data?.totp.find((f) => f.status === 'verified');
+        if (verifiedFactor) {
+          const aal = client.auth.mfa.getAuthenticatorAssuranceLevel();
+          if ((await aal).data?.currentLevel === 'aal1') {
+            setIsMfaChallenged(true);
+            return;
+          }
+        }
+
         const saved = localStorage.getItem('shiftDrop_driver_profile');
         if (saved) {
           try {
@@ -604,7 +621,6 @@ export default function App() {
     [activeShift]
   );
 
-  // Direct Supabase Row Mutation for Confirming Drop
   const handleConfirmDrop = useCallback(async (stopId: string, voiceNoteUrl?: string) => {
     triggerHapticFeedback('success');
     const now = new Date().toISOString();
@@ -643,7 +659,6 @@ export default function App() {
     }
   }, [userProfile?.id]);
 
-  // Direct Supabase Row Mutation for Reporting Return
   const handleReturnDrop = useCallback(async (stopId: string, reason: ReturnReasonCode) => {
     triggerHapticFeedback('warning');
 
@@ -724,86 +739,118 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  if (activeModule === 'auth' || !userProfile || !userProfile.id) {
+  // MFA Challenge Overlay Submit Handler
+  const handleVerifyMfaChallenge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mfaChallengeCode.trim().length !== 6) {
+      setMfaChallengeError('Enter the 6-digit code from your authenticator app.');
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    setMfaChallengeLoading(true);
+    setMfaChallengeError('');
+
+    try {
+      const factors = await client.auth.mfa.listFactors();
+      const verified = factors.data?.totp.find((f) => f.status === 'verified');
+      if (!verified) throw new Error('No verified authenticator factor found.');
+
+      const challenge = await client.auth.mfa.challenge({ factorId: verified.id });
+      if (challenge.error) throw challenge.error;
+
+      const verify = await client.auth.mfa.verify({
+        factorId: verified.id,
+        challengeId: challenge.data.id,
+        code: mfaChallengeCode.trim(),
+      });
+
+      if (verify.error) throw verify.error;
+
+      setIsMfaChallenged(false);
+      triggerHapticFeedback('success');
+      window.location.reload();
+    } catch (err: any) {
+      setMfaChallengeError(err.message || 'Invalid code. Please try again.');
+    } finally {
+      setMfaChallengeLoading(false);
+    }
+  };
+
+  if (activeModule === 'auth' || !userProfile || !userProfile.id || isMfaChallenged) {
     return (
       <div className="min-h-screen flex flex-col bg-canvas text-primary font-sans">
         <main className="flex-1 flex items-center justify-center p-4">
-          <AuthPortal
-            userProfile={userProfile}
-            onUpdateUserProfile={handleUpdateUserProfile}
-            onContinueToHub={() => setActiveModule('hub')}
-          />
+          {isMfaChallenged ? (
+            <div className="bg-surface border border-brand-cyan/40 rounded-2xl p-6 sm:p-7 w-full max-w-md shadow-2xl space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/30">
+                  <KeyRound className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-primary">Two-Factor Authentication</h3>
+                  <p className="text-xs text-secondary">
+                    Enter the 6-digit verification code from your authenticator app
+                  </p>
+                </div>
+              </div>
+
+              {mfaChallengeError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
+                  {mfaChallengeError}
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyMfaChallenge} className="space-y-4">
+                <input
+                  type="text"
+                  maxLength={6}
+                  pattern="[0-9]*"
+                  required
+                  autoFocus
+                  placeholder="000000"
+                  value={mfaChallengeCode}
+                  onChange={(e) => setMfaChallengeCode(e.target.value.replace(/\D/g, ''))}
+                  className="w-full bg-inset border border-subtle rounded-xl py-3 px-4 text-center font-mono text-xl tracking-widest text-primary focus:outline-none focus:border-brand-cyan"
+                />
+
+                <button
+                  type="submit"
+                  disabled={mfaChallengeLoading || mfaChallengeCode.length !== 6}
+                  className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                >
+                  {mfaChallengeLoading ? 'Verifying Code...' : 'Authenticate'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const client = getSupabaseClient();
+                    if (client) await client.auth.signOut();
+                    localStorage.clear();
+                    window.location.reload();
+                  }}
+                  className="w-full text-center text-xs text-secondary hover:text-primary transition-colors pt-2 cursor-pointer"
+                >
+                  Cancel &amp; Sign Out
+                </button>
+              </form>
+            </div>
+          ) : (
+            <AuthPortal
+              userProfile={userProfile}
+              onUpdateUserProfile={handleUpdateUserProfile}
+              onContinueToHub={() => setActiveModule('hub')}
+            />
+          )}
         </main>
         {showSplash && (
           <AppSplashScreen
             duration={1500}
             onComplete={() => setShowSplash(false)}
           />
-        )}
-        {isResettingPassword && (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-surface border border-brand-cyan/40 rounded-2xl p-6 sm:p-7 w-full max-w-md shadow-2xl space-y-4">
-              <h3 className="text-lg font-bold text-primary">Set New Password</h3>
-              <p className="text-xs text-secondary">
-                Enter your new secure password for your ShiftDrop account.
-              </p>
-
-              {resetPasswordError && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
-                  {resetPasswordError}
-                </div>
-              )}
-
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (newPasswordInput.trim().length < 6) {
-                    setResetPasswordError('Password must be at least 6 characters.');
-                    return;
-                  }
-
-                  setResetPasswordLoading(true);
-                  setResetPasswordError('');
-
-                  const client = getSupabaseClient();
-                  if (!client) return;
-
-                  const { error } = await client.auth.updateUser({
-                    password: newPasswordInput.trim(),
-                  });
-
-                  setResetPasswordLoading(false);
-
-                  if (error) {
-                    setResetPasswordError(error.message);
-                  } else {
-                    alert('Password updated successfully! Signing you in...');
-                    setIsResettingPassword(false);
-                    window.history.replaceState(null, '', window.location.pathname);
-                    window.location.reload();
-                  }
-                }}
-                className="space-y-4"
-              >
-                <input
-                  type="password"
-                  required
-                  placeholder="Enter new password (min 6 characters)"
-                  value={newPasswordInput}
-                  onChange={(e) => setNewPasswordInput(e.target.value)}
-                  className="w-full bg-inset border border-subtle rounded-xl py-3 px-4 text-sm text-primary focus:outline-none focus:border-brand-cyan"
-                />
-
-                <button
-                  type="submit"
-                  disabled={resetPasswordLoading}
-                  className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer"
-                >
-                  {resetPasswordLoading ? 'Updating Password...' : 'Save New Password'}
-                </button>
-              </form>
-            </div>
-          </div>
         )}
       </div>
     );
@@ -1089,72 +1136,6 @@ export default function App() {
           duration={1500}
           onComplete={() => setShowSplash(false)}
         />
-      )}
-
-      {isResettingPassword && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-surface border border-brand-cyan/40 rounded-2xl p-6 sm:p-7 w-full max-w-md shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-primary">Set New Password</h3>
-            <p className="text-xs text-secondary">
-              Enter your new secure password for your ShiftDrop account.
-            </p>
-
-            {resetPasswordError && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-medium">
-                {resetPasswordError}
-              </div>
-            )}
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (newPasswordInput.trim().length < 6) {
-                  setResetPasswordError('Password must be at least 6 characters.');
-                  return;
-                }
-
-                setResetPasswordLoading(true);
-                setResetPasswordError('');
-
-                const client = getSupabaseClient();
-                if (!client) return;
-
-                const { error } = await client.auth.updateUser({
-                  password: newPasswordInput.trim(),
-                });
-
-                setResetPasswordLoading(false);
-
-                if (error) {
-                  setResetPasswordError(error.message);
-                } else {
-                  alert('Password updated successfully! Signing you in...');
-                  setIsResettingPassword(false);
-                  window.history.replaceState(null, '', window.location.pathname);
-                  window.location.reload();
-                }
-              }}
-              className="space-y-4"
-            >
-              <input
-                type="password"
-                required
-                placeholder="Enter new password (min 6 characters)"
-                value={newPasswordInput}
-                onChange={(e) => setNewPasswordInput(e.target.value)}
-                className="w-full bg-inset border border-subtle rounded-xl py-3 px-4 text-sm text-primary focus:outline-none focus:border-brand-cyan"
-              />
-
-              <button
-                type="submit"
-                disabled={resetPasswordLoading}
-                className="w-full py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer"
-              >
-                {resetPasswordLoading ? 'Updating Password...' : 'Save New Password'}
-              </button>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   );

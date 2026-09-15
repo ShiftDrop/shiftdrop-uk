@@ -29,7 +29,6 @@ export function getSupabaseClient(url?: string, key?: string): SupabaseClient | 
   const envUrl = typeof window !== 'undefined' ? (import.meta.env.VITE_SUPABASE_URL || '') : '';
   const envKey = typeof window !== 'undefined' ? (import.meta.env.VITE_SUPABASE_ANON_KEY || '') : '';
 
-  // Direct fallbacks for ShiftDrop Android / Capacitor builds
   const FALLBACK_URL = 'https://quobnlitrvxoinptzqoz.supabase.co';
   const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1b2JubGl0cnZ4b2lucHR6cW96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODMwNDksImV4cCI6MjEwNDI1OTA0OX0.lWSXYhaWKBWNh3f2BDEpdqETNP5o1p-fS0HEiTIdxKM';
 
@@ -164,7 +163,7 @@ export async function testSupabaseConnection(url: string, key: string): Promise<
 // SUPABASE AUTHENTICATION
 // --------------------------------------------------------------------
 
-export async function supabaseSignIn(email: string, password: string): Promise<{ profile: UserSessionProfile | null; error: string | null }> {
+export async function supabaseSignIn(email: string, password: string): Promise<{ profile: UserSessionProfile | null; error: string | null; mfaRequired?: boolean }> {
   const client = getSupabaseClient();
   if (!client) {
     return { profile: null, error: 'Database uninitialised. Please check your connection.' };
@@ -187,6 +186,15 @@ export async function supabaseSignIn(email: string, password: string): Promise<{
           profile: null,
           error: 'Your email address has not been confirmed yet. Please verify your email before signing in.',
         };
+      }
+
+      // Check if MFA is required on this account
+      const factors = await client.auth.mfa.listFactors();
+      const hasTotp = factors.data?.totp && factors.data.totp.length > 0;
+      const verifiedTotp = factors.data?.totp.find((f) => f.status === 'verified');
+
+      if (hasTotp && verifiedTotp) {
+        return { profile: null, error: null, mfaRequired: true };
       }
 
       const meta = data.user.user_metadata || {};
@@ -328,6 +336,104 @@ export function onSupabaseAuthStateChange(callback: (profile: UserSessionProfile
   return () => {
     subscription.unsubscribe();
   };
+}
+
+// --------------------------------------------------------------------
+// MULTI-FACTOR AUTHENTICATION (TOTP / MFA)
+// --------------------------------------------------------------------
+
+export async function isMfaEnrolled(): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const { data } = await client.auth.mfa.listFactors();
+    return (data?.totp?.some((f) => f.status === 'verified')) || false;
+  } catch {
+    return false;
+  }
+}
+
+export async function enrollMfaTotp(): Promise<{ factorId: string; qrCode: string; secret: string } | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'ShiftDrop Courier Authenticator',
+    });
+
+    if (error || !data) return null;
+    return {
+      factorId: data.id,
+      qrCode: data.totp.qr_code,
+      secret: data.totp.secret,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyMfaTotp(factorId: string, code: string): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const challenge = await client.auth.mfa.challenge({ factorId });
+    if (challenge.error) return false;
+
+    const verify = await client.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.data.id,
+      code: code.trim(),
+    });
+
+    return !verify.error;
+  } catch {
+    return false;
+  }
+}
+
+export async function unenrollMfaTotp(): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const factors = await client.auth.mfa.listFactors();
+    const verified = factors.data?.totp.find((f) => f.status === 'verified');
+    if (verified) {
+      const { error } = await client.auth.mfa.unenroll({ factorId: verified.id });
+      return !error;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// --------------------------------------------------------------------
+// ACCOUNT & TELEMETRY DELETION (GDPR Article 17 / Play Store Compliance)
+// --------------------------------------------------------------------
+
+export async function deleteCourierAccountAndData(userId: string): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client || !userId) return false;
+
+  try {
+    await client.from('active_shifts').delete().eq('courier_id', userId);
+    await client.from('parcel_stops').delete().eq('user_id', userId);
+    await client.from('fuel_expenses').delete().eq('vehicle_id', userId);
+    await client.from('profiles').delete().eq('id', userId);
+    await client.auth.signOut();
+
+    if (typeof window !== 'undefined') {
+      localStorage.clear();
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // --------------------------------------------------------------------
@@ -579,7 +685,7 @@ CREATE TABLE IF NOT EXISTS public.fuel_expenses (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Enable RLS with Full Read/Write for Anon and Authenticated Couriers
+-- 6. Enable RLS with strict courier ownership
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.active_shifts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.parcel_stops ENABLE ROW LEVEL SECURITY;
@@ -587,19 +693,19 @@ ALTER TABLE public.registered_vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fuel_expenses ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public Profiles Policy" ON public.profiles;
-CREATE POLICY "Public Profiles Policy" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Couriers manage own profile" ON public.profiles FOR ALL TO authenticated USING (id::text = (auth.uid())::text) WITH CHECK (id::text = (auth.uid())::text);
 
 DROP POLICY IF EXISTS "Public Shifts Policy" ON public.active_shifts;
-CREATE POLICY "Public Shifts Policy" ON public.active_shifts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Couriers manage own shifts" ON public.active_shifts FOR ALL TO authenticated USING (courier_id::text = (auth.uid())::text) WITH CHECK (courier_id::text = (auth.uid())::text);
 
 DROP POLICY IF EXISTS "Public Stops Policy" ON public.parcel_stops;
-CREATE POLICY "Public Stops Policy" ON public.parcel_stops FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Couriers manage own stops" ON public.parcel_stops FOR ALL TO authenticated USING (user_id::text = (auth.uid())::text) WITH CHECK (user_id::text = (auth.uid())::text);
 
 DROP POLICY IF EXISTS "Public Vehicles Policy" ON public.registered_vehicles;
-CREATE POLICY "Public Vehicles Policy" ON public.registered_vehicles FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Couriers manage own vehicles" ON public.registered_vehicles FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Public Fuel Policy" ON public.fuel_expenses;
-CREATE POLICY "Public Fuel Policy" ON public.fuel_expenses FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Fuel Policy" ON public.fuel_expenses FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- 7. Storage Buckets Setup
 INSERT INTO storage.buckets (id, name, public) 
@@ -609,21 +715,19 @@ VALUES
   ('parking-evidence', 'parking-evidence', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- 8. Storage RLS Policies: Allow Read, Insert, and Update for Public/Anon & Authenticated
+-- 8. Storage RLS Policies: Courier-isolated folders
 DO $$
 BEGIN
-  DROP POLICY IF EXISTS "Public Storage Upload Access" ON storage.objects;
-  DROP POLICY IF EXISTS "Public Storage Read Access" ON storage.objects;
-  DROP POLICY IF EXISTS "Public Storage Update Access" ON storage.objects;
+  DROP POLICY IF EXISTS "Courier upload own media" ON storage.objects;
+  DROP POLICY IF EXISTS "Courier view own media" ON storage.objects;
 
-  CREATE POLICY "Public Storage Upload Access" ON storage.objects
-    FOR INSERT WITH CHECK (bucket_id IN ('drop-voice-notes', 'parking-evidence', 'fuel-receipts'));
+  CREATE POLICY "Courier upload own media" ON storage.objects
+    FOR INSERT TO authenticated
+    WITH CHECK (bucket_id IN ('drop-voice-notes', 'parking-evidence', 'fuel-receipts') AND (storage.foldername(name))[1] = (auth.uid())::text);
 
-  CREATE POLICY "Public Storage Read Access" ON storage.objects
-    FOR SELECT USING (bucket_id IN ('drop-voice-notes', 'parking-evidence', 'fuel-receipts'));
-
-  CREATE POLICY "Public Storage Update Access" ON storage.objects
-    FOR UPDATE USING (bucket_id IN ('drop-voice-notes', 'parking-evidence', 'fuel-receipts'));
+  CREATE POLICY "Courier view own media" ON storage.objects
+    FOR SELECT TO authenticated
+    USING (bucket_id IN ('drop-voice-notes', 'parking-evidence', 'fuel-receipts') AND (storage.foldername(name))[1] = (auth.uid())::text);
 EXCEPTION WHEN others THEN
   NULL;
 END $$;

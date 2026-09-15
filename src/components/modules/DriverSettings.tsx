@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Volume2,
   Vibrate,
@@ -11,7 +11,6 @@ import {
   Sparkles,
   Mic,
   Database,
-  Radio,
   Speaker,
   CheckCircle2,
   AlertTriangle,
@@ -20,6 +19,8 @@ import {
   EyeOff,
   Trash2,
   ExternalLink,
+  ShieldCheck,
+  KeyRound,
 } from 'lucide-react';
 import { DriverAppSettings } from '../../types';
 import {
@@ -27,6 +28,11 @@ import {
   saveSupabaseConfig,
   testSupabaseConnection,
   normalizeSupabaseUrl,
+  enrollMfaTotp,
+  verifyMfaTotp,
+  isMfaEnrolled,
+  unenrollMfaTotp,
+  deleteCourierAccountAndData,
 } from '../../services/supabase';
 import { syncEngine } from '../../services/syncEngine';
 import { triggerHapticFeedback, speakUkVoicePrompt } from '../../services/telemetry';
@@ -55,7 +61,7 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
     state: (settings.supabaseUrl && settings.supabaseAnonKey) ? 'success' : 'idle',
     message: (settings.supabaseUrl && settings.supabaseAnonKey) ? 'Supabase credentials active on this device' : undefined,
   });
-  const [activeTab, setActiveTab] = useState<'preferences' | 'audio' | 'cloud' | 'schema'>('preferences');
+  const [activeTab, setActiveTab] = useState<'preferences' | 'audio' | 'cloud' | 'security' | 'schema'>('preferences');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRestoringPro, setIsRestoringPro] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0);
@@ -63,6 +69,112 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
   const [accentRegion, setAccentRegion] = useState('Standard British RP');
   const [isPushingData, setIsPushingData] = useState(false);
   const [pushStatusMessage, setPushStatusMessage] = useState<string | null>(null);
+
+  // Security MFA States
+  const [mfaActive, setMfaActive] = useState(false);
+  const [mfaQr, setMfaQr] = useState<string | null>(null);
+  const [mfaSecret, setMfaSecret] = useState<string | null>(null);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaVerifyCode, setMfaVerifyCode] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
+  const [mfaMessage, setMfaMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  useEffect(() => {
+    isMfaEnrolled().then((enrolled) => setMfaActive(enrolled));
+  }, []);
+
+  const handleStartMfaEnrollment = async () => {
+    setMfaLoading(true);
+    setMfaMessage(null);
+    triggerHapticFeedback('light');
+
+    const result = await enrollMfaTotp();
+    setMfaLoading(false);
+
+    if (result) {
+      setMfaQr(result.qrCode);
+      setMfaSecret(result.secret);
+      setMfaFactorId(result.factorId);
+    } else {
+      setMfaMessage({ text: 'Unable to start MFA setup. Please verify your internet connection.', isError: true });
+    }
+  };
+
+  const handleConfirmMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaFactorId || mfaVerifyCode.trim().length !== 6) {
+      setMfaMessage({ text: 'Please enter the 6-digit code from your authenticator app.', isError: true });
+      return;
+    }
+
+    setMfaLoading(true);
+    triggerHapticFeedback('medium');
+    const verified = await verifyMfaTotp(mfaFactorId, mfaVerifyCode);
+    setMfaLoading(false);
+
+    if (verified) {
+      triggerHapticFeedback('success');
+      setMfaActive(true);
+      setMfaQr(null);
+      setMfaSecret(null);
+      setMfaFactorId(null);
+      setMfaVerifyCode('');
+      setMfaMessage({ text: 'Multi-Factor Authentication enabled successfully.', isError: false });
+      speakUkVoicePrompt('Two-factor security enabled.');
+    } else {
+      triggerHapticFeedback('warning');
+      setMfaMessage({ text: 'Invalid verification code. Please try the current code in your app.', isError: true });
+    }
+  };
+
+  const handleDisableMfa = async () => {
+    if (!window.confirm('Are you sure you want to disable Multi-Factor Authentication?')) return;
+    setMfaLoading(true);
+    const unenrolled = await unenrollMfaTotp();
+    setMfaLoading(false);
+
+    if (unenrolled) {
+      setMfaActive(false);
+      setMfaMessage({ text: 'MFA has been disabled.', isError: false });
+      speakUkVoicePrompt('Two-factor security disabled.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const saved = localStorage.getItem('shiftDrop_driver_profile');
+    const userId = saved ? JSON.parse(saved).id : null;
+
+    if (!userId) {
+      alert('No logged-in user profile found.');
+      return;
+    }
+
+    const confirmFirst = window.confirm(
+      'WARNING: Are you sure you want to delete your ShiftDrop account and all associated mileage, shifts, and receipts? This action cannot be reversed.'
+    );
+    if (!confirmFirst) return;
+
+    const confirmSecond = window.prompt(
+      'Type DELETE to confirm complete erasure of your account and records:'
+    );
+    if (confirmSecond !== 'DELETE') {
+      alert('Account deletion cancelled.');
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    triggerHapticFeedback('warning');
+    const success = await deleteCourierAccountAndData(userId);
+    setIsDeletingAccount(false);
+
+    if (success) {
+      alert('Your account and records have been deleted in compliance with GDPR. Returning to home.');
+      window.location.href = '/';
+    } else {
+      alert('Error during data erasure. Please check your connection.');
+    }
+  };
 
   const handlePushAllToCloud = async () => {
     setIsPushingData(true);
@@ -226,10 +338,10 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
             </div>
             <div className="min-w-0">
               <h1 className="text-sm sm:text-base md:text-lg font-bold text-primary tracking-tight font-mono truncate">
-                Driver Preferences &amp; Audio
+                Driver Preferences &amp; Security
               </h1>
               <p className="text-[11px] sm:text-xs text-secondary truncate">
-                UK speech synthesis, haptics &amp; cloud sync
+                UK speech, cloud sync, MFA &amp; privacy controls
               </p>
             </div>
           </div>
@@ -245,8 +357,8 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
           </button>
         </div>
 
-        {/* 4-Item Compact Navigation Bar */}
-        <div className="grid grid-cols-4 bg-inset p-1 rounded-xl border border-subtle gap-1 text-[11px] sm:text-xs font-mono font-bold">
+        {/* 5-Item Compact Navigation Bar */}
+        <div className="grid grid-cols-5 bg-inset p-1 rounded-xl border border-subtle gap-1 text-[11px] sm:text-xs font-mono font-bold">
           <button
             type="button"
             onClick={() => {
@@ -293,6 +405,22 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
           >
             <Cloud className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">Cloud</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('security');
+              triggerHapticFeedback('light');
+            }}
+            className={`py-2 px-1 rounded-lg transition-all text-center flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer ${
+              activeTab === 'security'
+                ? 'bg-brand-cyan text-canvas shadow-sm'
+                : 'text-secondary hover:text-primary hover:bg-surface'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Security</span>
           </button>
 
           <button
@@ -524,7 +652,6 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
               )}
             </div>
 
-            {/* Speech Rate & Pitch Controls */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="space-y-2 bg-inset p-4 rounded-xl border border-subtle">
                 <div className="flex justify-between items-center text-xs font-mono">
@@ -569,7 +696,6 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
               </div>
             </div>
 
-            {/* Quick Test Callouts */}
             <div className="space-y-2">
               <label className="text-xs font-bold font-mono text-secondary block uppercase">
                 Quick Test In-Cab Voice Phrases:
@@ -605,7 +731,6 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
       {/* Tab 3: Supabase Cloud Setup */}
       {activeTab === 'cloud' && (
         <div className="bg-surface border border-subtle rounded-2xl p-4 sm:p-6 shadow-xl space-y-4">
-          {/* Header Card */}
           <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-800/50 text-cyan-200 space-y-1">
             <div className="flex items-center justify-between">
               <span className="font-bold block text-sm">100% Zero-Cost Supabase Free Tier Sync</span>
@@ -618,7 +743,6 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
             </p>
           </div>
 
-          {/* Real-time Status Card */}
           {connectionStatus.state === 'success' && (
             <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/50 text-emerald-200 space-y-3">
               <div className="flex items-start gap-3">
@@ -637,7 +761,6 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
                 </div>
               </div>
 
-              {/* Push All Local Data Button */}
               <div className="pt-2 border-t border-emerald-500/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                 <button
                   type="button"
@@ -803,7 +926,6 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
             </div>
           </form>
 
-          {/* Help box */}
           <div className="p-3 rounded-xl bg-inset/50 border border-subtle text-xs text-secondary space-y-1">
             <span className="font-semibold text-primary block">Need your credentials?</span>
             <p className="text-[11px] leading-relaxed">
@@ -817,7 +939,135 @@ export const DriverSettings: React.FC<DriverSettingsProps> = ({
         </div>
       )}
 
-      {/* Tab 4: PostgreSQL Schema */}
+      {/* Tab 4: Security, MFA & Account Privacy */}
+      {activeTab === 'security' && (
+        <div className="bg-surface border border-subtle rounded-2xl p-4 sm:p-6 shadow-xl space-y-6">
+          <div className="flex items-center gap-2 border-b border-subtle pb-3">
+            <ShieldCheck className="w-5 h-5 text-brand-cyan" />
+            <h2 className="text-sm font-bold text-primary uppercase tracking-wider font-mono">
+              Account Security &amp; Courier Privacy
+            </h2>
+          </div>
+
+          {/* MFA / 2FA Section */}
+          <div className="p-4 rounded-xl bg-inset border border-subtle space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/30">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-primary">Multi-Factor Authentication (TOTP)</h3>
+                  <p className="text-xs text-secondary">
+                    Secure with Google Authenticator, Microsoft Authenticator, or 1Password
+                  </p>
+                </div>
+              </div>
+              <span className={`text-[10px] font-mono px-2.5 py-1 rounded-full font-bold ${
+                mfaActive ? 'bg-brand-emerald/15 text-brand-emerald border border-brand-emerald/30' : 'bg-subtle text-secondary'
+              }`}>
+                {mfaActive ? 'ACTIVE' : 'DISABLED'}
+              </span>
+            </div>
+
+            {mfaMessage && (
+              <div className={`p-3 rounded-xl text-xs ${
+                mfaMessage.isError ? 'bg-red-500/10 border border-red-500/30 text-red-400' : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+              }`}>
+                {mfaMessage.text}
+              </div>
+            )}
+
+            {!mfaActive && !mfaQr && (
+              <button
+                type="button"
+                disabled={mfaLoading}
+                onClick={handleStartMfaEnrollment}
+                className="px-4 py-2.5 rounded-xl bg-brand-cyan text-canvas font-bold text-xs flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+              >
+                {mfaLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                <span>Set Up Two-Factor Authenticator</span>
+              </button>
+            )}
+
+            {mfaQr && (
+              <div className="space-y-4 pt-2 border-t border-subtle">
+                <p className="text-xs text-secondary">
+                  1. Scan this QR code with your authenticator application (or manually copy the secret):
+                </p>
+                <div className="flex flex-col sm:flex-row items-center gap-4 bg-surface p-4 rounded-xl border border-subtle">
+                  <img src={mfaQr} alt="MFA QR Code" className="w-40 h-40 rounded-lg bg-white p-2" />
+                  <div className="space-y-2 text-xs font-mono break-all">
+                    <p className="text-secondary text-[11px]">Manual Secret Key:</p>
+                    <code className="text-brand-cyan bg-inset px-2 py-1 rounded select-all block text-xs">{mfaSecret}</code>
+                  </div>
+                </div>
+
+                <form onSubmit={handleConfirmMfa} className="space-y-3">
+                  <label className="block text-xs text-primary font-semibold">
+                    2. Enter the 6-digit code shown in your app to verify:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      pattern="[0-9]*"
+                      placeholder="123456"
+                      value={mfaVerifyCode}
+                      onChange={(e) => setMfaVerifyCode(e.target.value.replace(/\D/g, ''))}
+                      className="w-36 px-3 py-2 rounded-xl bg-surface border border-subtle font-mono text-center text-sm text-primary tracking-widest focus:border-brand-cyan focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={mfaLoading || mfaVerifyCode.length !== 6}
+                      className="px-4 py-2 rounded-xl bg-brand-emerald text-canvas font-bold text-xs hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      {mfaLoading ? 'Verifying...' : 'Activate 2FA'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {mfaActive && (
+              <div className="pt-2 border-t border-subtle">
+                <button
+                  type="button"
+                  disabled={mfaLoading}
+                  onClick={handleDisableMfa}
+                  className="px-3 py-2 rounded-xl bg-inset hover:bg-subtle text-red-400 hover:text-red-300 border border-subtle text-xs font-bold font-mono transition-colors cursor-pointer"
+                >
+                  Disable Two-Factor Authentication
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* GDPR Account & Data Erasure Section */}
+          <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/30 space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              <h3 className="text-sm font-bold text-red-400 uppercase font-mono">
+                Delete Account &amp; Courier Records (GDPR Article 17)
+              </h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Permanently delete your ShiftDrop courier account, including all completed delivery shifts, AMAP mileage logs, customer doorstep safe place notes, and stored vehicle receipts. This process is immediate and irreversible.
+            </p>
+            <button
+              type="button"
+              disabled={isDeletingAccount}
+              onClick={handleDeleteAccount}
+              className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-mono font-bold text-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              {isDeletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              <span>Permanently Purge All Account Records</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: PostgreSQL Schema */}
       {activeTab === 'schema' && (
         <div className="bg-surface border border-subtle rounded-2xl p-4 sm:p-6 shadow-xl space-y-3 font-mono">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle pb-3">
