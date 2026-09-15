@@ -30,7 +30,7 @@ import { supabaseUploadVoiceNote } from '../../services/supabase';
 interface ActiveCabHUDProps {
   stops: ParcelStop[];
   taxMetrics?: HMRCTaxCalculations | any;
-  settings?: any; // For Geofence toggle
+  settings?: any;
   doorstepIntelList?: DoorstepIntelItem[];
   onNavigateToDoorstepVault?: () => void;
   onConfirmDrop: (stopId: string, voiceNoteUrl?: string) => void;
@@ -72,17 +72,15 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
 
   const voiceRecorderRef = useRef<VoiceNoteRecorder>(new VoiceNoteRecorder());
 
-  // Pending stops in order
+  // Strictly select the next pending stop so completing one advances to the next or renders Route Complete
   const pendingStops = stops.filter((s) => s.status === 'Pending');
-  const currentStop = pendingStops[0] || stops[stops.length - 1] || null;
+  const currentStop = pendingStops.length > 0 ? pendingStops[0] : null;
 
   // Auto-check in logic
   useEffect(() => {
     if (settings?.isGeofencedAutoCheckInEnabled && currentStop && currentStop.status === 'Pending' && !isAutoCheckingIn) {
-      // Simulate GPS approach after 5 seconds
       const timeout = setTimeout(() => {
         setIsAutoCheckingIn(true);
-        // Simulate auto-confirm after 3 more seconds
         setTimeout(() => {
           onConfirmDrop(currentStop.id);
           setIsAutoCheckingIn(false);
@@ -104,18 +102,13 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
               setCurrentSpeedMph(mph);
             }
           },
-          () => {
-            // Location permission denied or stationary fallback
-          },
+          () => {},
           { enableHighAccuracy: true, maximumAge: 1000 }
         );
-      } catch {
-        // Fallback
-      }
+      } catch {}
     }
 
     const interval = setInterval(() => {
-      // Only simulate subtle speed variations if not actively streaming real speed
       setCurrentSpeedMph((prev) => {
         if (watchId !== null && prev > 0) return prev;
         const delta = (Math.random() - 0.48) * 3;
@@ -139,7 +132,8 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     const cleanGateCode = currentStop.gateAccessCode
       ? `Gate access code: ${currentStop.gateAccessCode.replace(/#/g, 'hash ')}.`
       : 'No gate code specified.';
-    const speechText = `Stop ${currentStop.stopNumber}: ${currentStop.recipientName}, ${currentStop.addressLine1}, postcode ${currentStop.postcode}. ${cleanGateCode} Parcel located in ${currentStop.assignedZone}.`;
+    const addr = currentStop.addressLine1 || '';
+    const speechText = `Stop ${currentStop.stopNumber || 1}: ${currentStop.recipientName || 'Customer'}, ${addr}, postcode ${currentStop.postcode || ''}. ${cleanGateCode} Parcel located in ${currentStop.assignedZone || 'van'}.`;
     speakUkVoicePrompt(speechText);
   };
 
@@ -174,14 +168,16 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
   const openGoogleMaps = () => {
     if (!currentStop) return;
     triggerHapticFeedback('light');
-    const query = encodeURIComponent(`${currentStop.addressLine1}, ${currentStop.postcode}, UK`);
+    const dest = currentStop.addressLine1 || currentStop.postcode || 'UK';
+    const query = encodeURIComponent(`${dest}, ${currentStop.postcode || ''}, UK`);
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${query}`, '_blank');
   };
 
   const openWaze = () => {
     if (!currentStop) return;
     triggerHapticFeedback('light');
-    const query = encodeURIComponent(`${currentStop.addressLine1}, ${currentStop.postcode}, UK`);
+    const dest = currentStop.addressLine1 || currentStop.postcode || 'UK';
+    const query = encodeURIComponent(`${dest}, ${currentStop.postcode || ''}, UK`);
     window.open(`https://waze.com/ul?q=${query}&navigate=yes`, '_blank');
   };
 
@@ -195,7 +191,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
       origin: { y: 0.8 },
       colors: ['#06B6D4', '#10B981', '#F8FAFC'],
     });
-    speakUkVoicePrompt(`Drop ${currentStop.stopNumber} confirmed delivered.`);
+    speakUkVoicePrompt(`Drop ${currentStop.stopNumber || 1} confirmed delivered.`);
     onConfirmDrop(currentStop.id, recordedAudioUrl || undefined);
     setRecordedAudioUrl(null);
   };
@@ -246,7 +242,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-primary font-mono">
-                {currentStop ? `Heading to Stop #${currentStop.stopNumber}` : 'All Drops Handled'}
+                {currentStop ? `Heading to Stop #${currentStop.stopNumber || 1}` : 'All Drops Handled'}
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded bg-inset border border-subtle text-secondary font-mono">
                 Speed Limit {speedLimitMph} mph
@@ -262,8 +258,9 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             id="btn-satnav-googlemaps"
+            type="button"
             onClick={openGoogleMaps}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-sm active:scale-95"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
             title="Launch Google Maps Navigation"
           >
             <Navigation className="w-3.5 h-3.5 text-brand-cyan" />
@@ -272,8 +269,9 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
           </button>
           <button
             id="btn-satnav-waze"
+            type="button"
             onClick={openWaze}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-sm active:scale-95"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
             title="Launch Waze Navigation with Police / Camera Alerts"
           >
             <Car className="w-3.5 h-3.5 text-brand-emerald" />
@@ -292,27 +290,29 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
               {/* Card Header */}
               <div className="flex flex-col sm:flex-row justify-between items-start mb-4 sm:mb-6 gap-3 sm:gap-0">
                 <div>
-                  <h2 className="text-xs font-bold text-secondary uppercase tracking-wider mb-1">
+                  <h2 className="text-xs font-bold text-secondary uppercase tracking-wider mb-1 font-mono">
                     Current Dispatch
                   </h2>
                   <p className="text-2xl font-semibold text-primary">
-                    Stop #{currentStop.stopNumber}: {currentStop.recipientName}
+                    Stop #{currentStop.stopNumber || 1}: {currentStop.recipientName || 'Customer'}
                   </p>
                   <p className="text-brand-cyan font-mono font-bold mt-1">
-                    {currentStop.postcode} • {currentStop.addressLine1}, {currentStop.townCity}
+                    {currentStop.postcode} • {currentStop.addressLine1}, {currentStop.townCity || 'UK'}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={openGoogleMaps}
-                    className="bg-subtle p-3 rounded-xl border border-[#3E4A61] hover:opacity-90 text-primary transition-colors"
+                    className="bg-subtle p-3 rounded-xl border border-[#3E4A61] hover:opacity-90 text-primary transition-colors cursor-pointer"
                     title="Launch SatNav"
                   >
                     <Navigation className="w-4 h-4 text-brand-cyan" />
                   </button>
                   <button
+                    type="button"
                     onClick={handleVoiceCallout}
-                    className="bg-subtle p-3 rounded-xl border border-[#3E4A61] hover:opacity-90 text-primary transition-colors"
+                    className="bg-subtle p-3 rounded-xl border border-[#3E4A61] hover:opacity-90 text-primary transition-colors cursor-pointer"
                     title="Hands-Free UK Voice Callout"
                   >
                     <Volume2 className="w-4 h-4 text-brand-emerald" />
@@ -327,9 +327,9 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                   <span className="text-[10px] uppercase font-bold text-secondary mb-2 block font-mono">
                     Spatial Load-In Guide
                   </span>
-                  <div className="grid grid-cols-3 gap-1.5 min-h-[140px] my-auto py-1">
+                  <div className="grid grid-cols-3 gap-1.5 min-h-35 my-auto py-1">
                     {vanZones.slice(0, 9).map((zone) => {
-                      const isTargetZone = currentStop.assignedZone === zone.id;
+                      const isTargetZone = (currentStop.assignedZone || 'Front Seat') === zone.id;
                       return (
                         <div
                           key={zone.id}
@@ -346,7 +346,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                     })}
                   </div>
                   <p className="mt-2 text-center text-xs font-bold text-brand-cyan font-mono truncate">
-                    {currentStop.assignedZone.toUpperCase()}
+                    {(currentStop.assignedZone || 'Front Seat').toUpperCase()}
                   </p>
                 </div>
 
@@ -362,7 +362,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                       </span>
                     </div>
                     <span className="text-xs bg-subtle px-2 py-1 rounded text-primary font-mono">
-                      {currentStop.parcelSize}
+                      {currentStop.parcelSize || 'Standard Drop'}
                     </span>
                   </div>
                   
@@ -378,7 +378,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                     const matchingIntel = doorstepIntelList.find(
                       (item) =>
                         item.postcode.replace(/\s+/g, '').toUpperCase() ===
-                        currentStop.postcode.replace(/\s+/g, '').toUpperCase()
+                        (currentStop.postcode || '').replace(/\s+/g, '').toUpperCase()
                     );
 
                     return (
@@ -392,8 +392,9 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                           </div>
                           {onNavigateToDoorstepVault && (
                             <button
+                              type="button"
                               onClick={onNavigateToDoorstepVault}
-                              className="text-[10px] uppercase font-bold text-brand-cyan hover:underline flex items-center gap-1 font-mono"
+                              className="text-[10px] uppercase font-bold text-brand-cyan hover:underline flex items-center gap-1 font-mono cursor-pointer"
                             >
                               <span>Open Vault</span>
                               <ChevronRight className="w-3 h-3" />
@@ -409,12 +410,13 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                               </span>
                               {matchingIntel.accessCode && (
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     triggerHapticFeedback('success');
                                     navigator.clipboard.writeText(matchingIntel.accessCode!);
                                     speakUkVoicePrompt(`Code ${matchingIntel.accessCode} copied.`);
                                   }}
-                                  className="text-xs font-mono font-black text-brand-cyan px-2 py-0.5 rounded bg-surface border border-brand-cyan/40 hover:bg-brand-cyan hover:text-canvas transition-colors"
+                                  className="text-xs font-mono font-black text-brand-cyan px-2 py-0.5 rounded bg-surface border border-brand-cyan/40 hover:bg-brand-cyan hover:text-canvas transition-colors cursor-pointer"
                                 >
                                   Code: {matchingIntel.accessCode} (Tap to Copy)
                                 </button>
@@ -453,8 +455,9 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                             <span>No verified gate codes logged yet for {currentStop.postcode}.</span>
                             {onNavigateToDoorstepVault && (
                               <button
+                                type="button"
                                 onClick={onNavigateToDoorstepVault}
-                                className="not-italic text-[10px] font-bold text-brand-cyan uppercase ml-2 underline"
+                                className="not-italic text-[10px] font-bold text-brand-cyan uppercase ml-2 underline cursor-pointer"
                               >
                                 + Add Code
                               </button>
@@ -477,8 +480,9 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                   {/* Voice note button & player */}
                   <div className="space-y-1.5">
                     <button
+                      type="button"
                       onClick={handleToggleVoiceNote}
-                      className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-colors ${
+                      className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                         isRecordingVoiceNote
                           ? 'bg-red-950/80 border-red-500 text-red-300 animate-pulse'
                           : recordedAudioUrl
@@ -502,7 +506,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                         <button
                           type="button"
                           onClick={() => setRecordedAudioUrl(null)}
-                          className="text-[10px] text-red-400 hover:text-red-300 font-mono px-1.5 py-0.5 rounded border border-red-500/30 hover:bg-red-500/10 whitespace-nowrap"
+                          className="text-[10px] text-red-400 hover:text-red-300 font-mono px-1.5 py-0.5 rounded border border-red-500/30 hover:bg-red-500/10 whitespace-nowrap cursor-pointer"
                         >
                           Clear
                         </button>
@@ -514,16 +518,18 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                   <div className="flex gap-2">
                     <button
                       id="btn-confirm-drop-action"
+                      type="button"
                       onClick={handleConfirmDropAction}
-                      className="bg-brand-emerald text-canvas flex-1 py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-[#0E9E6D] shadow-lg shadow-[#10B981]/20 transition-all active:scale-95 uppercase tracking-wide"
+                      className="bg-brand-emerald text-canvas flex-1 py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-[#0E9E6D] shadow-lg shadow-brand-emerald/20 transition-all active:scale-95 uppercase tracking-wide cursor-pointer"
                     >
                       <CheckCircle2 className="w-5 h-5 font-bold" />
                       <span>CONFIRM DROP</span>
                     </button>
                     <button
                       id="btn-return-item-action"
+                      type="button"
                       onClick={handleOpenReturnModal}
-                      className="bg-inset border border-red-500/40 text-red-400 hover:text-red-300 px-3 py-3.5 rounded-xl text-xs font-bold transition-all active:scale-95"
+                      className="bg-inset border border-red-500/40 text-red-400 hover:text-red-300 px-3 py-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
                       title="Return Item to Depot"
                     >
                       <XCircle className="w-5 h-5" />
@@ -614,21 +620,21 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                 </span>
               </div>
 
-              <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-95 overflow-y-auto pr-1">
                 {pendingStops.slice(1, 6).map((stop, idx) => (
                   <div
                     key={stop.id}
                     onClick={() => onSelectStop(stop.id)}
                     className={`p-3 rounded-xl bg-inset hover:bg-subtle cursor-pointer transition-colors border-l-4 ${
-                      idx === 0 ? 'border-l-[#06B6D4]' : idx === 1 ? 'border-l-[#10B981]' : 'border-l-[#8F9CAE]'
+                      idx === 0 ? 'border-l-[#06B6D4]' : idx === 1 ? 'border-l-brand-emerald' : 'border-l-[#8F9CAE]'
                     } border-t border-r border-b border-subtle`}
                   >
                     <div className="flex justify-between items-start">
                       <span className="text-xs font-bold text-primary">
-                        Stop #{stop.stopNumber}: {stop.recipientName}
+                        Stop #{stop.stopNumber || idx + 2}: {stop.recipientName || 'Customer'}
                       </span>
                       <span className="text-[10px] font-mono text-brand-cyan bg-surface px-1.5 py-0.5 rounded">
-                        {stop.assignedZone.split(' ')[0]}
+                        {(stop.assignedZone || 'Front Seat').split(' ')[0]}
                       </span>
                     </div>
                     <p className="text-[11px] text-secondary mt-1 font-mono">
@@ -662,7 +668,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
           </div>
         </div>
       ) : (
-        <div className="bg-surface border border-brand-emerald/40 rounded-2xl p-10 text-center space-y-4 shadow-2xl">
+        <div className="bg-surface border border-brand-emerald/40 rounded-2xl p-10 text-center space-y-4 shadow-2xl animate-fade-in">
           <div className="w-16 h-16 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-brand-emerald flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
           </div>
@@ -684,7 +690,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold">Return Drop #{returnModalStop.stopNumber}</h3>
+                <h3 className="text-base font-bold">Return Drop #{returnModalStop.stopNumber || 1}</h3>
                 <p className="text-xs text-secondary">
                   Select reason code for depot returns debrief manifest.
                 </p>
@@ -722,15 +728,17 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
+                type="button"
                 onClick={() => setReturnModalStop(null)}
-                className="px-4 py-2 rounded-lg bg-inset border border-subtle text-xs text-secondary hover:text-primary"
+                className="px-4 py-2 rounded-lg bg-inset border border-subtle text-xs text-secondary hover:text-primary cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 id="btn-confirm-return-item-modal"
+                type="button"
                 onClick={handleConfirmReturnAction}
-                className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all"
+                className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all cursor-pointer"
               >
                 Mark as Return
               </button>
@@ -746,8 +754,9 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
             <div className="p-4 border-b border-subtle flex items-center justify-between bg-inset">
               <h3 className="font-bold text-primary">Add Driver Intel</h3>
               <button
+                type="button"
                 onClick={() => setIntelModalStop(null)}
-                className="p-1 rounded hover:bg-subtle text-secondary"
+                className="p-1 rounded hover:bg-subtle text-secondary cursor-pointer"
               >
                 <XCircle className="w-5 h-5" />
               </button>
@@ -760,9 +769,10 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                 value={newIntelText}
                 onChange={(e) => setNewIntelText(e.target.value)}
                 placeholder="e.g. Beware of aggressive dog, access code is 1234, hidden safe place behind bins..."
-                className="w-full bg-inset border border-subtle rounded-xl p-3 text-sm text-primary font-mono min-h-[100px] focus:outline-none focus:border-brand-cyan"
+                className="w-full bg-inset border border-subtle rounded-xl p-3 text-sm text-primary font-mono min-h-25 focus:outline-none focus:border-brand-cyan"
               />
               <button
+                type="button"
                 onClick={() => {
                   if (newIntelText.trim()) {
                     if (!intelModalStop.communityIntel) {
@@ -773,7 +783,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                     setIntelModalStop(null);
                   }
                 }}
-                className="w-full py-3 bg-brand-cyan hover:opacity-90 text-canvas font-bold text-sm rounded-xl shadow-md transition-all active:scale-95 uppercase tracking-wide"
+                className="w-full py-3 bg-brand-cyan hover:opacity-90 text-canvas font-bold text-sm rounded-xl shadow-md transition-all active:scale-95 uppercase tracking-wide cursor-pointer"
               >
                 Share with Network
               </button>

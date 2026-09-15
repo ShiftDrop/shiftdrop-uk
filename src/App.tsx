@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { ShieldCheck, CheckCircle2 } from 'lucide-react';
 import {
   ActiveModuleId,
   ParcelStop,
@@ -449,17 +450,23 @@ export default function App() {
           .eq('user_id', currentProfileId);
 
         if (!stopError && remoteStops) {
-          const formattedStops: ParcelStop[] = remoteStops.map((p: any) => ({
+          const formattedStops: ParcelStop[] = remoteStops.map((p: any, idx: number) => ({
             id: p.id,
+            stopNumber: idx + 1,
             trackingNumber: p.tracking_number,
             recipientName: p.recipient_name,
             address: `${p.address_line1 || ''}, ${p.city || ''}`,
+            addressLine1: p.address_line1 || p.address || '',
+            townCity: p.city || 'UK',
             postcode: p.postcode,
             status: p.status,
             assignedZone: p.assigned_zone || 'Front Seat',
             voiceNoteUrl: p.voice_note_url,
             deliveryTimestamp: p.delivery_timestamp,
             returnReason: p.return_reason,
+            parcelSize: p.parcel_size || 'Medium Box',
+            gateAccessCode: p.gate_code || p.gate_access_code || '',
+            customerInstructions: p.customer_instructions || p.instructions || '',
           } as unknown as ParcelStop));
           setStops(formattedStops);
         }
@@ -492,15 +499,21 @@ export default function App() {
             const p: any = payload.new;
             const newStop: ParcelStop = {
               id: p.id,
+              stopNumber: stops.length + 1,
               trackingNumber: p.tracking_number,
               recipientName: p.recipient_name,
               address: `${p.address_line1 || ''}, ${p.city || ''}`,
+              addressLine1: p.address_line1 || '',
+              townCity: p.city || 'UK',
               postcode: p.postcode,
               status: p.status,
               assignedZone: p.assigned_zone || 'Front Seat',
               voiceNoteUrl: p.voice_note_url,
               deliveryTimestamp: p.delivery_timestamp,
               returnReason: p.return_reason,
+              parcelSize: p.parcel_size || 'Medium Box',
+              gateAccessCode: p.gate_code || p.gate_access_code || '',
+              customerInstructions: p.customer_instructions || p.instructions || '',
             } as unknown as ParcelStop;
 
             setStops((prev) => [newStop, ...prev.filter((s) => s.id !== newStop.id)]);
@@ -530,7 +543,7 @@ export default function App() {
     return () => {
       client.removeChannel(channel);
     };
-  }, [userProfile?.id]);
+  }, [userProfile?.id, stops.length]);
 
   useEffect(() => {
     if (userProfile?.id && stops.length > 0) {
@@ -974,16 +987,61 @@ export default function App() {
           )}
 
           {activeModule === 'pro' && (
-            <ProUpgrade
-              onUpgradeComplete={() => {
-                setIsNativePro(true);
-                localStorage.setItem('shiftDrop_isPro', 'true');
-                if (userProfile?.id) {
-                  localStorage.setItem(getScopedKey('isPro', userProfile.id), 'true');
-                }
-                handleNavigateToModule('hub');
-              }}
-            />
+            isProUser ? (
+              <div className="max-w-xl mx-auto my-12 p-8 bg-surface border border-brand-emerald/40 rounded-3xl text-center space-y-5 shadow-2xl font-mono animate-fade-in">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-brand-emerald/15 border border-brand-emerald/30 flex items-center justify-center text-brand-emerald">
+                  <ShieldCheck className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] uppercase tracking-widest px-2.5 py-1 rounded bg-brand-emerald/15 text-brand-emerald border border-brand-emerald/30 font-bold">
+                    PRO SUBSCRIPTION ACTIVE
+                  </span>
+                  <h2 className="text-2xl font-black text-primary mt-2">ShiftDrop PRO Membership</h2>
+                  <p className="text-xs text-secondary font-sans max-w-sm mx-auto">
+                    Your account is fully activated. All in-cab tools, HMRC AMAP tax shields, Doorstep Intel, and Pay Radar benchmarks are unlocked.
+                  </p>
+                </div>
+                <div className="p-4 bg-inset rounded-2xl border border-subtle text-left space-y-2 text-xs font-sans">
+                  <div className="flex items-center gap-2 text-brand-emerald font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>HMRC AMAP Mileage Vault (45p/mi)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-brand-emerald font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Doorstep Intel &amp; Gate Code Vault</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-brand-emerald font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Shift Profit &amp; Real Hourly Rate Engine</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-brand-emerald font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>UK Courier Pay Radar Benchmarks</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-brand-emerald font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>PCN Shield &amp; Loading Exemption Proofs</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleNavigateToModule('hub')}
+                  className="w-full py-3.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-xs uppercase tracking-wider hover:opacity-95 active:scale-95 transition-all shadow-lg cursor-pointer"
+                >
+                  Return to Workstation Hub
+                </button>
+              </div>
+            ) : (
+              <ProUpgrade
+                onUpgradeComplete={() => {
+                  setIsNativePro(true);
+                  localStorage.setItem('shiftDrop_isPro', 'true');
+                  if (userProfile?.id) {
+                    localStorage.setItem(getScopedKey('isPro', userProfile.id), 'true');
+                  }
+                  handleNavigateToModule('hub');
+                }}
+              />
+            )
           )}
 
           {activeModule === 'settings' && (
