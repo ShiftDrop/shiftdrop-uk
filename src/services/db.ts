@@ -104,6 +104,35 @@ export async function saveShiftToSupabase(shift: ActiveShift) {
   }
 }
 
+/**
+ * Deletes a shift record from Supabase for the authenticated courier
+ */
+export async function deleteShiftFromSupabase(shiftId: string): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client || !shiftId) return false;
+
+  try {
+    const { data: userData } = await client.auth.getUser();
+    const courierId = userData?.user?.id;
+    if (!courierId) return false;
+
+    const { error } = await client
+      .from('active_shifts')
+      .delete()
+      .eq('id', shiftId)
+      .eq('courier_id', courierId);
+
+    if (error) {
+      console.error('Error deleting shift from Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to delete shift:', err);
+    return false;
+  }
+}
+
 export async function saveVehicleToSupabase(vehicle: RegisteredVehicle) {
   const client = getSupabaseClient();
   if (!client || !vehicle) return;

@@ -15,6 +15,7 @@ import {
   Calculator,
   CheckCircle2,
   Clock,
+  Trash2,
 } from 'lucide-react';
 import {
   CourierNetwork,
@@ -23,6 +24,7 @@ import {
   HMRCTaxCalculations,
 } from '../../types';
 import { triggerHapticFeedback, speakUkVoicePrompt } from '../../services/telemetry';
+import { deleteShiftFromSupabase } from '../../services/db';
 
 interface InCabHomeHubProps {
   activeShift: ActiveShift | null;
@@ -66,6 +68,12 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
   const [bonusInput, setBonusInput] = useState<number | ''>(
     activeShift ? activeShift.bonusPay : ''
   );
+  const [localHistory, setLocalHistory] = useState<ActiveShift[]>(shiftHistory);
+  const [deletingShiftId, setDeletingShiftId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalHistory(shiftHistory);
+  }, [shiftHistory]);
 
   useEffect(() => {
     if (activeShift) {
@@ -95,12 +103,24 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
     }
   };
 
+  const handleDeleteShift = async (shiftId: string) => {
+    if (!window.confirm('Delete this shift block from your records?')) return;
+    setDeletingShiftId(shiftId);
+    triggerHapticFeedback('warning');
+
+    const success = await deleteShiftFromSupabase(shiftId);
+    if (success) {
+      setLocalHistory((prev) => prev.filter((s) => s.id !== shiftId));
+    }
+    setDeletingShiftId(null);
+  };
+
   // Dynamic calculations derived strictly from shifts
   const todayGross = activeShift?.isActive
     ? (activeShift.agreedBlockRate || 0) + (activeShift.bonusPay || 0)
     : 0;
 
-  const pastTotal = shiftHistory.reduce(
+  const pastTotal = localHistory.reduce(
     (sum, s) => sum + (s.agreedBlockRate || 0) + (s.bonusPay || 0),
     0
   );
@@ -142,7 +162,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-doorstep-intel"
               onClick={() => handleProGatedNavigation('doorstep')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-cyan/40 text-brand-cyan text-xs font-bold transition-all shadow-md active:scale-95"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-cyan/40 text-brand-cyan text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
               title="Open Doorstep Intel & Gate Code Vault"
             >
               <Key className="w-4 h-4" />
@@ -156,7 +176,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-shift-calc"
               onClick={() => handleProGatedNavigation('calculator')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-emerald/40 text-brand-emerald text-xs font-bold transition-all shadow-md active:scale-95"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-emerald/40 text-brand-emerald text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
               title="Open Real Hourly Rate & Profit Calculator"
             >
               <Calculator className="w-4 h-4" />
@@ -170,7 +190,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-active-dispatch"
               onClick={() => onNavigateTo('hud')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-md active:scale-95"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
             >
               <Navigation className="w-4 h-4 text-brand-cyan" />
               <span>Active HUD</span>
@@ -178,7 +198,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-spatial-loadin"
               onClick={() => onNavigateTo('loadin')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-extrabold transition-all shadow-lg hover:opacity-95 active:scale-95"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-extrabold transition-all shadow-lg hover:opacity-95 active:scale-95 cursor-pointer"
             >
               <Box className="w-4 h-4" />
               <span>Spatial Load-In</span>
@@ -203,8 +223,8 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <span>
               {activeShift?.isActive
                 ? 'Active Block Running'
-                : shiftHistory.length > 0
-                  ? `${shiftHistory.length} Block(s) Logged`
+                : localHistory.length > 0
+                  ? `${localHistory.length} Block(s) Logged`
                   : 'No shifts recorded'}
             </span>
           </div>
@@ -220,7 +240,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             £{thisWeekGross.toFixed(2)}
           </div>
           <div className="text-[10px] text-secondary font-sans">
-            {shiftHistory.length > 0 ? `${shiftHistory.length} Blocks Recorded` : '0 Blocks Recorded'}
+            {localHistory.length > 0 ? `${localHistory.length} Blocks Recorded` : '0 Blocks Recorded'}
           </div>
         </div>
 
@@ -285,9 +305,9 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
 
           {/* Courier Network Selector */}
           <div>
-            <label className="block text-xs font-semibold text-secondary mb-2">
+            <span className="block text-xs font-semibold text-secondary mb-2">
               Select Courier Network
-            </label>
+            </span>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
               {NETWORKS.map((net) => (
                 <button
@@ -298,7 +318,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                     setSelectedNetwork(net);
                     triggerHapticFeedback('light');
                   }}
-                  className={`p-2 rounded-xl text-xs font-bold text-center border transition-all ${
+                  className={`p-2 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
                     selectedNetwork === net
                       ? 'bg-brand-cyan/15 border-brand-cyan text-primary shadow-sm'
                       : 'bg-inset border-subtle text-secondary hover:text-primary'
@@ -310,10 +330,10 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             </div>
           </div>
 
-          {/* Rates & Odometer Inputs */}
+          {/* Rates & Odometer Inputs (A11y htmlFor labels added) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
             <div>
-              <label className="block text-secondary mb-1 font-sans font-semibold">
+              <label htmlFor="input-start-odometer" className="block text-secondary mb-1 font-sans font-semibold">
                 Starting Odometer (Miles)
               </label>
               <input
@@ -327,7 +347,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             </div>
 
             <div>
-              <label className="block text-secondary mb-1 font-sans font-semibold">
+              <label htmlFor="input-agreed-block-rate" className="block text-secondary mb-1 font-sans font-semibold">
                 Agreed Block Rate (£ GBP)
               </label>
               <div className="relative">
@@ -345,7 +365,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             </div>
 
             <div>
-              <label className="block text-secondary mb-1 font-sans font-semibold">
+              <label htmlFor="input-surge-bonus-rate" className="block text-secondary mb-1 font-sans font-semibold">
                 Surge / Bonus Pay (£ GBP)
               </label>
               <div className="relative">
@@ -367,7 +387,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-clock-in-action"
               onClick={handleLaunchShift}
-              className="w-full py-3 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>
@@ -466,7 +486,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
           <div className="pt-2">
             <button
               onClick={() => (!isProUser ? onNavigateTo('pro') : onNavigateTo('radar'))}
-              className="w-full py-2.5 rounded-xl bg-inset hover:bg-subtle border border-subtle text-xs font-semibold text-secondary hover:text-primary flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-2.5 rounded-xl bg-inset hover:bg-subtle border border-subtle text-xs font-semibold text-secondary hover:text-primary flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               <Award className="w-4 h-4 text-brand-cyan" />
               <span>Check UK Courier Pay Benchmarks (Pay Radar)</span>
@@ -480,7 +500,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
         </div>
       </div>
 
-      {/* Recent Logged Shifts Section */}
+      {/* Recent Logged Shifts Section with Delete Trigger */}
       <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-3">
         <div className="flex items-center justify-between border-b border-subtle pb-3">
           <div className="flex items-center gap-2">
@@ -490,17 +510,17 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             </h2>
           </div>
           <span className="text-xs font-mono text-secondary">
-            {shiftHistory.length} Block(s) Recorded
+            {localHistory.length} Block(s) Recorded
           </span>
         </div>
 
-        {shiftHistory.length === 0 ? (
+        {localHistory.length === 0 ? (
           <div className="py-8 text-center text-secondary text-xs font-mono">
             No completed shifts logged yet. Once you tap "End Shift" on an active route, it will appear here.
           </div>
         ) : (
           <div className="divide-y divide-subtle">
-            {shiftHistory.map((s) => (
+            {localHistory.map((s) => (
               <div key={s.id} className="py-3 flex items-center justify-between text-xs font-mono">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
@@ -520,14 +540,26 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <div className="text-sm font-black text-brand-emerald">
-                    £{(Number(s.agreedBlockRate || 0) + Number(s.bonusPay || 0)).toFixed(2)}
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="text-sm font-black text-brand-emerald">
+                      £{(Number(s.agreedBlockRate || 0) + Number(s.bonusPay || 0)).toFixed(2)}
+                    </div>
+                    <span className="text-[10px] text-secondary font-sans flex items-center gap-1 justify-end">
+                      <CheckCircle2 className="w-3 h-3 text-brand-emerald" />
+                      Logged to HMRC
+                    </span>
                   </div>
-                  <span className="text-[10px] text-secondary font-sans flex items-center gap-1 justify-end">
-                    <CheckCircle2 className="w-3 h-3 text-brand-emerald" />
-                    Logged to HMRC
-                  </span>
+
+                  <button
+                    type="button"
+                    title="Delete this block"
+                    disabled={deletingShiftId === s.id}
+                    onClick={() => handleDeleteShift(s.id)}
+                    className="p-2 rounded-lg bg-inset hover:bg-red-500/10 hover:text-red-400 text-secondary border border-subtle hover:border-red-500/30 transition-all cursor-pointer disabled:opacity-40"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}
