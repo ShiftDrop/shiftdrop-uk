@@ -269,7 +269,7 @@ export default function App() {
       if (client) {
         client.auth.updateUser({
           data: { subscription_tier: 'pro', is_pro: true },
-        }).catch((err) => console.warn('Could not sync Pro status to auth metadata:', err));
+        }).catch(() => {});
       }
 
       if (userProfile) {
@@ -379,15 +379,11 @@ export default function App() {
           lon = pos.coords.longitude;
           city = 'Current Location';
           localStorage.setItem('shiftDrop_cached_geo', JSON.stringify({ lat, lon, city }));
-        } catch {
-          // Quietly fallback without throwing console errors
-        }
+        } catch {}
 
         const data = await fetchUkWeatherTelemetry(lat, lon, city);
         setWeather(data);
-      } catch (err) {
-        console.warn('Weather telemetry load failure:', err);
-      }
+      } catch {}
     }
     loadLiveWeather();
   }, []);
@@ -415,9 +411,7 @@ export default function App() {
           .eq('courier_id', currentProfileId)
           .order('clock_in_time', { ascending: false });
 
-        if (shiftError) {
-          console.warn('Could not load shifts from cloud:', shiftError.message);
-        } else if (remoteShifts) {
+        if (!shiftError && remoteShifts) {
           const formattedShifts: ActiveShift[] = remoteShifts.map((s: any) => {
             const isCurrentlyActive =
               String(s.status).toLowerCase() === 'active' && !s.clock_out_time;
@@ -456,7 +450,7 @@ export default function App() {
             trackingNumber: p.tracking_number,
             recipientName: p.recipient_name,
             address: `${p.address_line1 || ''}, ${p.city || ''}`,
-            addressLine1: p.address_line1 || p.address || '',
+            addressLine1: p.address_line1 || '',
             townCity: p.city || 'UK',
             postcode: p.postcode,
             status: p.status,
@@ -470,9 +464,7 @@ export default function App() {
           } as unknown as ParcelStop));
           setStops(formattedStops);
         }
-      } catch (err) {
-        console.warn('Could not load live cloud data:', err);
-      }
+      } catch {}
     }
 
     fetchCloudData();
@@ -617,7 +609,6 @@ export default function App() {
     triggerHapticFeedback('success');
     const now = new Date().toISOString();
 
-    // 1. Optimistic Local React State Update
     setStops((prev) =>
       prev.map((s) => {
         if (s.id === stopId) {
@@ -632,7 +623,6 @@ export default function App() {
       })
     );
 
-    // 2. Direct Supabase Mutation
     const client = getSupabaseClient();
     if (client && userProfile?.id) {
       try {
@@ -646,14 +636,10 @@ export default function App() {
           .eq('id', stopId)
           .eq('user_id', userProfile.id);
 
-        if (error) {
-          console.error('Error confirming drop in Supabase:', error.message);
-        } else {
+        if (!error) {
           speakUkVoicePrompt('Drop confirmed delivered.');
         }
-      } catch (err) {
-        console.warn('Direct confirm drop sync failed:', err);
-      }
+      } catch {}
     }
   }, [userProfile?.id]);
 
@@ -661,7 +647,6 @@ export default function App() {
   const handleReturnDrop = useCallback(async (stopId: string, reason: ReturnReasonCode) => {
     triggerHapticFeedback('warning');
 
-    // 1. Optimistic Local React State Update
     setStops((prev) =>
       prev.map((s) => {
         if (s.id === stopId) {
@@ -675,11 +660,10 @@ export default function App() {
       })
     );
 
-    // 2. Direct Supabase Mutation
     const client = getSupabaseClient();
     if (client && userProfile?.id) {
       try {
-        const { error } = await client
+        await client
           .from('parcel_stops')
           .update({
             status: 'Returned',
@@ -687,13 +671,7 @@ export default function App() {
           })
           .eq('id', stopId)
           .eq('user_id', userProfile.id);
-
-        if (error) {
-          console.error('Error recording return in Supabase:', error.message);
-        }
-      } catch (err) {
-        console.warn('Direct return sync failed:', err);
-      }
+      } catch {}
     }
   }, [userProfile?.id]);
 
