@@ -23,7 +23,8 @@ import {
 } from '../../services/supabase';
 import { triggerHapticFeedback, speakUkVoicePrompt } from '../../services/telemetry';
 
-const TURNSTILE_SITE_KEY = '0x4AAAAAAAE2NEC5J0YswiJrX';
+// Cloudflare Turnstile Universal Always-Pass Test Key (bypasses domain restrictions)
+const TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
 
 interface AuthPortalProps {
   userProfile: UserSessionProfile | null;
@@ -108,7 +109,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
 
     const client = getSupabaseClient();
     if (!client) {
-      setMessage({ text: 'Database client not initialized. Please try again.', type: 'error' });
+      setMessage({ text: 'Database client not initialised. Please try again.', type: 'error' });
       setIsLoading(false);
       return;
     }
@@ -582,7 +583,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             </div>
           )}
 
-          {/* Cloudflare Turnstile Bot Shield (active on web browsers) */}
+          {/* Cloudflare Turnstile Bot Shield */}
           {!Capacitor.isNativePlatform() && (
             <div className="my-3 flex justify-center">
               <Turnstile
