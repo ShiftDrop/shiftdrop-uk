@@ -458,7 +458,7 @@ export default function App() {
             status: p.status,
             assignedZone: p.assigned_zone || 'Front Seat',
             voiceNoteUrl: p.voice_note_url,
-            deliveryTimestamp: p.deliveryTimestamp,
+            deliveryTimestamp: p.delivery_timestamp,
             returnReason: p.return_reason,
           } as unknown as ParcelStop));
           setStops(formattedStops);
@@ -599,25 +599,56 @@ export default function App() {
     [activeShift]
   );
 
-  const handleConfirmDrop = useCallback((stopId: string, voiceNoteUrl?: string) => {
+  // Direct Supabase Row Mutation for Confirming Drop
+  const handleConfirmDrop = useCallback(async (stopId: string, voiceNoteUrl?: string) => {
     triggerHapticFeedback('success');
+    const now = new Date().toISOString();
+
+    // 1. Optimistic Local React State Update
     setStops((prev) =>
       prev.map((s) => {
         if (s.id === stopId) {
           return {
             ...s,
             status: 'Delivered' as const,
-            deliveryTimestamp: new Date().toISOString(),
+            deliveryTimestamp: now,
             voiceNoteUrl: voiceNoteUrl || s.voiceNoteUrl,
           };
         }
         return s;
       })
     );
-  }, []);
 
-  const handleReturnDrop = useCallback((stopId: string, reason: ReturnReasonCode) => {
+    // 2. Direct Supabase Mutation
+    const client = getSupabaseClient();
+    if (client && userProfile?.id) {
+      try {
+        const { error } = await client
+          .from('parcel_stops')
+          .update({
+            status: 'Delivered',
+            delivery_timestamp: now,
+            voice_note_url: voiceNoteUrl || null,
+          })
+          .eq('id', stopId)
+          .eq('user_id', userProfile.id);
+
+        if (error) {
+          console.error('Error confirming drop in Supabase:', error.message);
+        } else {
+          speakUkVoicePrompt('Drop confirmed delivered.');
+        }
+      } catch (err) {
+        console.warn('Direct confirm drop sync failed:', err);
+      }
+    }
+  }, [userProfile?.id]);
+
+  // Direct Supabase Row Mutation for Reporting Return
+  const handleReturnDrop = useCallback(async (stopId: string, reason: ReturnReasonCode) => {
     triggerHapticFeedback('warning');
+
+    // 1. Optimistic Local React State Update
     setStops((prev) =>
       prev.map((s) => {
         if (s.id === stopId) {
@@ -630,7 +661,28 @@ export default function App() {
         return s;
       })
     );
-  }, []);
+
+    // 2. Direct Supabase Mutation
+    const client = getSupabaseClient();
+    if (client && userProfile?.id) {
+      try {
+        const { error } = await client
+          .from('parcel_stops')
+          .update({
+            status: 'Returned',
+            return_reason: reason,
+          })
+          .eq('id', stopId)
+          .eq('user_id', userProfile.id);
+
+        if (error) {
+          console.error('Error recording return in Supabase:', error.message);
+        }
+      } catch (err) {
+        console.warn('Direct return sync failed:', err);
+      }
+    }
+  }, [userProfile?.id]);
 
   const handleUpdateParcelZone = useCallback((stopId: string, zone: VanCompartmentZone) => {
     setStops((prev) =>
