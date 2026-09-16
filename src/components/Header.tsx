@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Menu,
   Sun,
@@ -10,7 +10,9 @@ import {
   Zap,
   Share2,
   Mic,
+  WifiOff,
 } from 'lucide-react';
+import { Network, ConnectionStatus } from '@capacitor/network';
 import { WeatherTelemetry, UserSessionProfile } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -58,7 +60,22 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleVoice,
   isVoiceActive,
 }) => {
+  const [isOnline, setIsOnline] = useState<boolean>(true);
   const isFreezing = weather ? weather.isFrostWarning || weather.temperature <= 3 : false;
+
+  useEffect(() => {
+    Network.getStatus()
+      .then((status: ConnectionStatus) => setIsOnline(status.connected))
+      .catch(() => setIsOnline(true));
+
+    const listenerPromise = Network.addListener('networkStatusChange', (status: ConnectionStatus) => {
+      setIsOnline(status.connected);
+    });
+
+    return () => {
+      listenerPromise.then((handle) => handle.remove()).catch(() => {});
+    };
+  }, []);
 
   return (
     <header
@@ -87,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
           </h1>
         </button>
 
-        {/* Initials Pill Badge directly next to ShiftDrop */}
+        {/* Initials Pill Badge */}
         {userProfile && (
           <div 
             onClick={onOpenAuth}
@@ -111,9 +128,21 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
       </div>
 
-      {/* Middle/Right: Telemetry, Glowing Voice Pill & Quick Actions */}
+      {/* Middle/Right: Telemetry, Offline Badge, Glowing Voice Pill & Quick Actions */}
       <div className="flex items-center gap-1.5 sm:gap-4">
         <PWAInstallButton compact />
+
+        {/* Offline Badge Notification */}
+        {!isOnline && (
+          <div 
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-mono font-bold animate-pulse select-none"
+            title="Offline Mode: All parcel drops & mileage logs are saved safely to local storage"
+          >
+            <WifiOff className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Offline (Local Vault Active)</span>
+            <span className="sm:hidden">Offline</span>
+          </div>
+        )}
 
         {/* Live Weather / Temp Telemetry */}
         <div className="hidden sm:flex items-center gap-2 bg-inset px-2.5 py-1.5 rounded-xl border border-subtle font-mono text-xs">

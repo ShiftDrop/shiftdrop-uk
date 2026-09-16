@@ -19,6 +19,8 @@ import {
   Users,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { KeepAwake } from '@capacitor-community/keep-awake';
+import { Capacitor } from '@capacitor/core';
 import { ParcelStop, VanCompartmentZone, ReturnReasonCode, HMRCTaxCalculations, DoorstepIntelItem } from '../../types';
 import {
   triggerHapticFeedback,
@@ -75,6 +77,15 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
   const pendingStops = stops.filter((s) => s.status === 'Pending');
   const currentStop = pendingStops.length > 0 ? pendingStops[0] : null;
 
+  // Prevent windscreen cradle display sleep during driving
+  useEffect(() => {
+    KeepAwake.keepAwake().catch(() => {});
+    return () => {
+      KeepAwake.allowSleep().catch(() => {});
+    };
+  }, []);
+
+  // Geofenced auto-check in simulation
   useEffect(() => {
     if (settings?.isGeofencedAutoCheckInEnabled && currentStop && currentStop.status === 'Pending' && !isAutoCheckingIn) {
       const timeout = setTimeout(() => {
@@ -88,6 +99,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     }
   }, [currentStop, settings?.isGeofencedAutoCheckInEnabled, isAutoCheckingIn, onConfirmDrop]);
 
+  // Real In-Cab GPS Speedometer
   useEffect(() => {
     let watchId: number | null = null;
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
@@ -159,20 +171,29 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     }
   };
 
+  // SatNav Handoffs: Native Android App Protocol with Browser Fallback
   const openGoogleMaps = () => {
     if (!currentStop) return;
     triggerHapticFeedback('light');
-    const dest = currentStop.addressLine1 || currentStop.postcode || 'UK';
-    const query = encodeURIComponent(`${dest}, ${currentStop.postcode || ''}, UK`);
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${query}`, '_blank');
+    const destination = encodeURIComponent(`${currentStop.postcode || currentStop.addressLine1 || 'UK'}, UK`);
+
+    if (Capacitor.isNativePlatform()) {
+      window.location.href = `google.navigation:q=${destination}`;
+    } else {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}`, '_blank');
+    }
   };
 
   const openWaze = () => {
     if (!currentStop) return;
     triggerHapticFeedback('light');
-    const dest = currentStop.addressLine1 || currentStop.postcode || 'UK';
-    const query = encodeURIComponent(`${dest}, ${currentStop.postcode || ''}, UK`);
-    window.open(`https://waze.com/ul?q=${query}&navigate=yes`, '_blank');
+    const destination = encodeURIComponent(`${currentStop.postcode || currentStop.addressLine1 || 'UK'}, UK`);
+
+    if (Capacitor.isNativePlatform()) {
+      window.location.href = `waze://?q=${destination}&navigate=yes`;
+    } else {
+      window.open(`https://waze.com/ul?q=${destination}&navigate=yes`, '_blank');
+    }
   };
 
   const handleConfirmDropAction = () => {
@@ -234,7 +255,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
 
           {/* Authentic UK Road Sign 30 mph Roundel */}
           <div
-            className="w-12 h-12 rounded-full bg-white border-[4px] border-[#DC2626] flex items-center justify-center shadow-lg shrink-0 select-none"
+            className="w-12 h-12 rounded-full bg-white border-4 border-[#DC2626] flex items-center justify-center shadow-lg shrink-0 select-none"
             title={`UK Speed Limit: ${speedLimitMph} MPH`}
           >
             <span className="text-lg font-black text-black font-sans leading-none tracking-tight">
