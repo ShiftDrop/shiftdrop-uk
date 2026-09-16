@@ -72,11 +72,9 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
 
   const voiceRecorderRef = useRef<VoiceNoteRecorder>(new VoiceNoteRecorder());
 
-  // Strictly select the next pending stop so completing one advances to the next or renders Route Complete
   const pendingStops = stops.filter((s) => s.status === 'Pending');
   const currentStop = pendingStops.length > 0 ? pendingStops[0] : null;
 
-  // Auto-check in logic
   useEffect(() => {
     if (settings?.isGeofencedAutoCheckInEnabled && currentStop && currentStop.status === 'Pending' && !isAutoCheckingIn) {
       const timeout = setTimeout(() => {
@@ -90,7 +88,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     }
   }, [currentStop, settings?.isGeofencedAutoCheckInEnabled, isAutoCheckingIn, onConfirmDrop]);
 
-  // Real In-Cab GPS Speedometer with fallback telemetry
   useEffect(() => {
     let watchId: number | null = null;
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
@@ -125,7 +122,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     };
   }, []);
 
-  // Hands-free Voice Assistant Callout
   const handleVoiceCallout = () => {
     if (!currentStop) return;
     triggerHapticFeedback('light');
@@ -137,7 +133,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     speakUkVoicePrompt(speechText);
   };
 
-  // Voice Note Recording
   const handleToggleVoiceNote = async () => {
     if (!isRecordingVoiceNote) {
       triggerHapticFeedback('medium');
@@ -164,7 +159,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     }
   };
 
-  // SatNav Handoffs
   const openGoogleMaps = () => {
     if (!currentStop) return;
     triggerHapticFeedback('light');
@@ -181,7 +175,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     window.open(`https://waze.com/ul?q=${query}&navigate=yes`, '_blank');
   };
 
-  // Confirm Drop with haptic & visual celebration
   const handleConfirmDropAction = () => {
     if (!currentStop) return;
     triggerHapticFeedback('success');
@@ -210,7 +203,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
     setReturnModalStop(null);
   };
 
-  // Van Compartment Visualiser Zones
   const vanZones: { id: VanCompartmentZone; label: string; gridArea: string }[] = [
     { id: 'Bulkhead Upper', label: 'Bulkhead Upper', gridArea: 'col-span-6 bg-blue-950/60' },
     { id: 'Bulkhead Lower', label: 'Bulkhead Lower', gridArea: 'col-span-6 bg-indigo-950/60' },
@@ -224,31 +216,39 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
 
   return (
     <div id="module-active-cab-hud" className="w-full p-4 sm:p-6 font-sans space-y-6">
-      {/* Top Telemetry Bar with Speedometer and SatNav */}
+      {/* Top Telemetry Bar with Anti-Glare Speedometer and UK Speed Sign */}
       <div className="bg-surface border border-subtle rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5 sm:gap-4">
-          <div className="flex flex-col items-center justify-center w-14 sm:w-16 h-14 sm:h-16 rounded-2xl bg-inset border-2 border-brand-cyan/70 shadow-md font-mono shrink-0 px-1 py-1">
-            <span className="text-xl sm:text-2xl font-black text-primary leading-none tracking-tight block">
+        <div className="flex items-center gap-3.5 sm:gap-4 shrink-0">
+          {/* High-Contrast Glare-Resistant Digital Speed Box */}
+          <div className="flex flex-col items-center justify-center w-16 h-16 rounded-2xl bg-[#05070B] border-2 border-brand-cyan shadow-lg shadow-cyan-950/50 font-mono shrink-0 p-1">
+            <span className="text-2xl font-black text-white leading-none tracking-tight block drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]">
               {currentSpeedMph}
             </span>
-            <span className="text-[8px] sm:text-[9px] uppercase tracking-widest text-brand-cyan font-bold mt-1 leading-none">
+            <span className="text-[9px] uppercase tracking-widest text-brand-cyan font-black mt-1 leading-none">
               MPH
             </span>
-            <span className="text-[7px] uppercase text-secondary font-medium leading-none mt-0.5">
+            <span className="text-[7px] uppercase text-slate-400 font-bold leading-none mt-0.5">
               GPS
+            </span>
+          </div>
+
+          {/* Authentic UK Road Sign 30 mph Roundel */}
+          <div
+            className="w-12 h-12 rounded-full bg-white border-[4px] border-[#DC2626] flex items-center justify-center shadow-lg shrink-0 select-none"
+            title={`UK Speed Limit: ${speedLimitMph} MPH`}
+          >
+            <span className="text-lg font-black text-black font-sans leading-none tracking-tight">
+              {speedLimitMph}
             </span>
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-primary font-mono">
-                {currentStop ? `Heading to Stop #${currentStop.stopNumber || 1}` : 'All Drops Handled'}
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-inset border border-subtle text-secondary font-mono">
-                Speed Limit {speedLimitMph} mph
+              <span className="text-sm font-black text-primary font-mono tracking-tight">
+                {currentStop ? `Heading to Stop #${currentStop.stopNumber || 1}` : 'Route Complete'}
               </span>
             </div>
-            <p className="text-xs text-secondary mt-0.5">
+            <p className="text-xs text-secondary mt-0.5 font-medium">
               Next Turn: Continue 450 yards on Deansgate (A56), then turn left on Whitworth St.
             </p>
           </div>
@@ -260,7 +260,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
             id="btn-satnav-googlemaps"
             type="button"
             onClick={openGoogleMaps}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer touch-manipulation"
             title="Launch Google Maps Navigation"
           >
             <Navigation className="w-3.5 h-3.5 text-brand-cyan" />
@@ -271,8 +271,8 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
             id="btn-satnav-waze"
             type="button"
             onClick={openWaze}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
-            title="Launch Waze Navigation with Police / Camera Alerts"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer touch-manipulation"
+            title="Launch Waze Navigation"
           >
             <Car className="w-3.5 h-3.5 text-brand-emerald" />
             <span>Waze SatNav</span>
@@ -283,11 +283,8 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
 
       {currentStop ? (
         <div className="grid grid-cols-12 gap-6">
-          {/* Main 8 Columns Container */}
           <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
-            {/* Current Dispatch Hero Card */}
             <div className="bg-surface border border-subtle rounded-2xl p-6 flex flex-col shadow-xl">
-              {/* Card Header */}
               <div className="flex flex-col sm:flex-row justify-between items-start mb-4 sm:mb-6 gap-3 sm:gap-0">
                 <div>
                   <h2 className="text-xs font-bold text-secondary uppercase tracking-wider mb-1 font-mono">
@@ -320,12 +317,11 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                 </div>
               </div>
 
-              {/* Inner 2-Column Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                {/* Left: Spatial Load-In Guide */}
+                {/* Left: Van Parcel Map Guide */}
                 <div className="bg-inset border border-subtle rounded-xl p-3.5 sm:p-4 flex flex-col justify-between">
                   <span className="text-[10px] uppercase font-bold text-secondary mb-2 block font-mono">
-                    Spatial Load-In Guide
+                    Van Parcel Map Guide
                   </span>
                   <div className="grid grid-cols-3 gap-1.5 min-h-35 my-auto py-1">
                     {vanZones.slice(0, 9).map((zone) => {
@@ -350,7 +346,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                   </p>
                 </div>
 
-                {/* Right: Codes, Instructions & Action */}
+                {/* Right: Codes, Notes & Confirm Drop */}
                 <div className="flex flex-col justify-between gap-3">
                   <div className="bg-inset border border-subtle rounded-xl p-3 flex justify-between items-center">
                     <div>
@@ -373,7 +369,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                     </div>
                   )}
 
-                  {/* Crowdsourced Drop Intel & Gate Code Vault */}
+                  {/* Customer & Gate Notes from Vault */}
                   {(() => {
                     const matchingIntel = doorstepIntelList.find(
                       (item) =>
@@ -387,7 +383,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                           <div className="flex items-center gap-1.5 text-brand-cyan">
                             <Key className="w-4 h-4" />
                             <span className="text-xs font-bold uppercase tracking-wider font-mono">
-                              Doorstep Intel &amp; Gate Code Vault
+                              Customer &amp; Gate Notes
                             </span>
                           </div>
                           {onNavigateToDoorstepVault && (
@@ -396,7 +392,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                               onClick={onNavigateToDoorstepVault}
                               className="text-[10px] uppercase font-bold text-brand-cyan hover:underline flex items-center gap-1 font-mono cursor-pointer"
                             >
-                              <span>Open Vault</span>
+                              <span>Open Notes</span>
                               <ChevronRight className="w-3 h-3" />
                             </button>
                           )}
@@ -459,7 +455,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                                 onClick={onNavigateToDoorstepVault}
                                 className="not-italic text-[10px] font-bold text-brand-cyan uppercase ml-2 underline cursor-pointer"
                               >
-                                + Add Code
+                                + Add Note
                               </button>
                             )}
                           </div>
@@ -477,7 +473,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                     </p>
                   </div>
 
-                  {/* Voice note button & player */}
+                  {/* Voice Note Recorder */}
                   <div className="space-y-1.5">
                     <button
                       type="button"
@@ -514,13 +510,13 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                     )}
                   </div>
 
-                  {/* Big Confirm Drop Button */}
+                  {/* Confirm Drop Actions */}
                   <div className="flex gap-2">
                     <button
                       id="btn-confirm-drop-action"
                       type="button"
                       onClick={handleConfirmDropAction}
-                      className="bg-brand-emerald text-canvas flex-1 py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-[#0E9E6D] shadow-lg shadow-brand-emerald/20 transition-all active:scale-95 uppercase tracking-wide cursor-pointer"
+                      className="bg-brand-emerald text-canvas flex-1 py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-[#0E9E6D] shadow-lg shadow-brand-emerald/20 transition-all active:scale-95 uppercase tracking-wide cursor-pointer touch-manipulation"
                     >
                       <CheckCircle2 className="w-5 h-5 font-bold" />
                       <span>CONFIRM DROP</span>
@@ -529,7 +525,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                       id="btn-return-item-action"
                       type="button"
                       onClick={handleOpenReturnModal}
-                      className="bg-inset border border-red-500/40 text-red-400 hover:text-red-300 px-3 py-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                      className="bg-inset border border-red-500/40 text-red-400 hover:text-red-300 px-3 py-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation"
                       title="Return Item to Depot"
                     >
                       <XCircle className="w-5 h-5" />
@@ -541,7 +537,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
 
             {/* Bottom 3 Vitals Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              {/* Card 1: AMAP Tax Shield */}
               <div className="bg-surface border border-subtle rounded-2xl p-4 flex flex-col justify-between shadow-md">
                 <span className="text-[10px] font-bold text-secondary uppercase font-mono">
                   AMAP Tax Shield
@@ -567,14 +562,13 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                 </span>
               </div>
 
-              {/* Card 2: PCN Guardian */}
               <div className="bg-surface border border-subtle rounded-2xl p-4 flex flex-col justify-between shadow-md">
                 <span className="text-[10px] font-bold text-secondary uppercase font-mono">
-                  PCN Guardian
+                  Loading Bay Timer
                 </span>
                 <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center my-2">
                   <span className="text-[9px] text-orange-400 uppercase font-mono font-bold block">
-                    Loading Window
+                    Remaining Window
                   </span>
                   <span className="text-xl font-mono text-primary font-black">
                     14:52
@@ -585,7 +579,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                 </span>
               </div>
 
-              {/* Card 3: Vehicle Vitals */}
               <div className="bg-surface border border-subtle rounded-2xl p-4 flex flex-col justify-between border-b-4 border-b-[#06B6D4] shadow-md">
                 <span className="text-[10px] font-bold text-secondary uppercase font-mono">
                   Vehicle Vitals
@@ -607,9 +600,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
             </div>
           </div>
 
-          {/* Right 4 Columns Container */}
           <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
-            {/* Next Up Manifest */}
             <div className="bg-surface border border-subtle rounded-2xl p-4 flex flex-col shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xs font-bold text-secondary uppercase tracking-wider font-mono">
@@ -645,7 +636,6 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
               </div>
             </div>
 
-            {/* Earnings Forecast */}
             <div className="bg-surface border border-subtle rounded-2xl p-4 shadow-xl">
               <h3 className="text-xs font-bold text-secondary uppercase tracking-wider mb-4 font-mono">
                 Earnings Forecast
@@ -676,12 +666,12 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
             Route Complete! All Drops Handled
           </h2>
           <p className="text-xs text-secondary max-w-md mx-auto">
-            Congratulations. You have processed all stops for this delivery block. Proceed to Depot Returns Debrief if any returns were recorded, or punch out to save your HMRC AMAP logs.
+            Congratulations. You have processed all stops for this delivery block. Proceed to Depot Returns Log if any returns were recorded, or punch out to save your HMRC AMAP logs.
           </p>
         </div>
       )}
 
-      {/* Return Item Reason Modal */}
+      {/* Return Item Modal */}
       {returnModalStop && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-md bg-surface border border-subtle rounded-2xl p-6 shadow-2xl text-primary space-y-4">
@@ -692,7 +682,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
               <div>
                 <h3 className="text-base font-bold">Return Drop #{returnModalStop.stopNumber || 1}</h3>
                 <p className="text-xs text-secondary">
-                  Select reason code for depot returns debrief manifest.
+                  Select reason code for depot returns log.
                 </p>
               </div>
             </div>
@@ -752,7 +742,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
         <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-surface border border-subtle rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-subtle flex items-center justify-between bg-inset">
-              <h3 className="font-bold text-primary">Add Driver Intel</h3>
+              <h3 className="font-bold text-primary">Add Driver Notes</h3>
               <button
                 type="button"
                 onClick={() => setIntelModalStop(null)}
@@ -768,7 +758,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
               <textarea
                 value={newIntelText}
                 onChange={(e) => setNewIntelText(e.target.value)}
-                placeholder="e.g. Beware of aggressive dog, access code is 1234, hidden safe place behind bins..."
+                placeholder="e.g. Beware of loose dog, gate code is 1234, hidden safe place behind garden shed..."
                 className="w-full bg-inset border border-subtle rounded-xl p-3 text-sm text-primary font-mono min-h-25 focus:outline-none focus:border-brand-cyan"
               />
               <button

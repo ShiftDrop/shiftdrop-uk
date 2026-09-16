@@ -31,7 +31,7 @@ export const PCNShield: React.FC<PCNShieldProps> = ({
   parkingRecords,
   onAddParkingRecord,
 }) => {
-  const [loadingSecondsRemaining, setLoadingSecondsRemaining] = useState<number>(20 * 60); // 20 mins default
+  const [loadingSecondsRemaining, setLoadingSecondsRemaining] = useState<number>(20 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [bayLocation, setBayLocation] = useState('Deansgate Loading Bay #2');
   const [bayPostcode, setBayPostcode] = useState('M3 4EG');
@@ -57,18 +57,15 @@ export const PCNShield: React.FC<PCNShieldProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Loading Timer Interval
   useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
+    let timer: any = null;
     if (isTimerRunning && loadingSecondsRemaining > 0) {
       timer = setInterval(() => {
         setLoadingSecondsRemaining((prev) => {
           if (prev === 300) {
-            // 5 minutes warning
             triggerHapticFeedback('warning');
             speakUkVoicePrompt('Warning: 5 minutes remaining on commercial loading bay.');
           } else if (prev === 120) {
-            // 2 minutes warning
             triggerHapticFeedback('warning');
             speakUkVoicePrompt('Urgent: 2 minutes left before loading bay expiration.');
           }
@@ -114,7 +111,6 @@ export const PCNShield: React.FC<PCNShieldProps> = ({
       } catch (e) {}
     }
 
-    // Attempt real GPS acquisition from device
     let lat = 53.4795;
     let lng = -2.2488;
 
@@ -128,9 +124,7 @@ export const PCNShield: React.FC<PCNShieldProps> = ({
         });
         lat = Number(pos.coords.latitude.toFixed(6));
         lng = Number(pos.coords.longitude.toFixed(6));
-      } catch {
-        // Fallback default coordinates
-      }
+      } catch {}
     }
 
     const newRecord: ParkingEvidence = {
@@ -150,7 +144,7 @@ export const PCNShield: React.FC<PCNShieldProps> = ({
     setEvidenceSavedMsg(
       `Evidence securely timestamped at ${new Date().toLocaleTimeString('en-GB')}! Audit record #${newRecord.id.slice(-6).toUpperCase()} registered at GPS ${lat}, ${lng}.`
     );
-    speakUkVoicePrompt('Geotagged parking evidence timestamped and stored in vault.');
+    speakUkVoicePrompt('Geotagged parking evidence timestamped and stored.');
   };
 
   const generateAppealLetterText = (rec: ParkingEvidence) => {
@@ -266,23 +260,22 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
 
   return (
     <div id="module-pcn-shield" className="max-w-6xl mx-auto p-3 sm:p-5 space-y-5">
-      {/* Top Banner */}
       <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
-                Penalty Charge Notice Defense
+                Ticket Defense
               </span>
               <span className="text-[10px] font-mono text-secondary">
                 UK Commercial Loading Exemption
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-primary font-mono flex items-center gap-2">
-              PCN Shield & Parking Guardian
+              Parking Ticket Appeals
             </h1>
             <p className="text-xs text-secondary max-w-xl">
-              20-minute loading bay countdown, audio alerts, CAZ/ULEZ Euro 6 compliance checker, and geotagged timestamped photographic proof.
+              20-minute loading bay countdown, audio alerts, CAZ/ULEZ checker, and geotagged photographic proof for council ticket appeals.
             </p>
           </div>
 
@@ -295,9 +288,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
         </div>
       </div>
 
-      {/* Main Grid: 20-min Timer & Evidence Capture */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left 6 Cols: 20-Minute Loading Bay Timer */}
         <div className="lg:col-span-6 bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-5">
           <div className="flex items-center justify-between border-b border-subtle pb-3">
             <div className="flex items-center gap-2">
@@ -311,7 +302,6 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
             </span>
           </div>
 
-          {/* Big Countdown Display */}
           <div className="p-6 rounded-2xl bg-inset border border-subtle text-center space-y-2">
             <span className="text-[11px] font-mono uppercase tracking-widest text-secondary block">
               Time Remaining Before PCN Risk
@@ -335,13 +325,12 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
             </p>
           </div>
 
-          {/* Timer Controls */}
           <div className="flex items-center gap-3">
             {!isTimerRunning ? (
               <button
                 id="btn-start-loading-timer"
                 onClick={handleStartTimer}
-                className="flex-1 py-3 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-xs uppercase tracking-wider shadow-lg hover:opacity-95 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-xs uppercase tracking-wider shadow-lg hover:opacity-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-current" />
                 <span>Start 20m Timer</span>
@@ -350,7 +339,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
               <button
                 id="btn-pause-loading-timer"
                 onClick={handlePauseTimer}
-                className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-canvas font-black text-xs uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-canvas font-black text-xs uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Pause className="w-4 h-4 fill-current" />
                 <span>Pause Timer</span>
@@ -359,14 +348,13 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
 
             <button
               onClick={handleResetTimer}
-              className="p-3 rounded-xl bg-inset hover:bg-subtle border border-subtle text-secondary hover:text-primary transition-colors"
+              className="p-3 rounded-xl bg-inset hover:bg-subtle border border-subtle text-secondary hover:text-primary transition-colors cursor-pointer"
               title="Reset Timer to 20 Minutes"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Quick presets */}
           <div className="flex items-center gap-2 text-xs font-mono">
             <span className="text-secondary">Presets:</span>
             {[10, 15, 20, 30].map((mins) => (
@@ -376,7 +364,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                   setLoadingSecondsRemaining(mins * 60);
                   triggerHapticFeedback('light');
                 }}
-                className="px-2.5 py-1 rounded-lg bg-inset hover:bg-subtle border border-subtle text-primary"
+                className="px-2.5 py-1 rounded-lg bg-inset hover:bg-subtle border border-subtle text-primary cursor-pointer"
               >
                 {mins}m
               </button>
@@ -384,16 +372,14 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
           </div>
         </div>
 
-        {/* Right 6 Cols: Geotagged Photographic Proof & CAZ Checker */}
         <div className="lg:col-span-6 space-y-5">
-          {/* Photographic Evidence Box */}
           <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-3 font-sans text-xs">
             <div className="flex items-center justify-between border-b border-subtle pb-2 font-mono font-bold text-primary uppercase">
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-brand-cyan" />
                 <span>Geotag Parking Evidence</span>
               </div>
-              <span className="text-[10px] text-brand-emerald">GPS Lat 53.48 / Long -2.24</span>
+              <span className="text-[10px] text-brand-emerald">GPS Active</span>
             </div>
 
             <div className="space-y-2 font-mono">
@@ -411,7 +397,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
 
               <div>
                 <label className="block text-secondary mb-1 font-sans font-semibold">
-                  Postcode & Loading Details
+                  Postcode &amp; Loading Details
                 </label>
                 <input
                   type="text"
@@ -421,7 +407,6 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                 />
               </div>
 
-              {/* Photo Evidence Attachment */}
               <div className="pt-1">
                 <input
                   type="file"
@@ -433,7 +418,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2 px-3 rounded-lg bg-inset hover:bg-subtle border border-dashed border-subtle text-secondary hover:text-primary font-mono text-[11px] flex items-center justify-center gap-2 transition-colors"
+                  className="w-full py-2 px-3 rounded-lg bg-inset hover:bg-subtle border border-dashed border-subtle text-secondary hover:text-primary font-mono text-[11px] flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   <Camera className="w-3.5 h-3.5 text-brand-cyan" />
                   <span>{evidencePhoto ? 'Change Attached Bay Photo' : 'Attach Loading Bay / Sign Photo'}</span>
@@ -457,7 +442,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
             <button
               id="btn-store-parking-evidence"
               onClick={handleSaveParkingEvidence}
-              className="w-full py-2.5 rounded-xl bg-brand-cyan hover:opacity-90 text-canvas font-black text-xs transition-all flex items-center justify-center gap-2 shadow-md active:scale-95"
+              className="w-full py-2.5 rounded-xl bg-brand-cyan hover:opacity-90 text-canvas font-black text-xs transition-all flex items-center justify-center gap-2 shadow-md active:scale-95 cursor-pointer"
             >
               <FileCheck className="w-4 h-4" />
               <span>Timestamp Geotagged Evidence Record</span>
@@ -471,19 +456,18 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
             )}
           </div>
 
-          {/* Stored Evidence Records Vault */}
           <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-3 font-sans text-xs">
             <div className="flex items-center justify-between border-b border-subtle pb-2 font-mono font-bold text-primary uppercase">
               <div className="flex items-center gap-2">
                 <FileCheck className="w-4 h-4 text-brand-cyan" />
-                <span>Stored PCN Evidence Records ({parkingRecords.length})</span>
+                <span>Saved Parking Evidence Records ({parkingRecords.length})</span>
               </div>
-              <span className="text-[10px] text-brand-emerald">HMRC & Council Appeal Ready</span>
+              <span className="text-[10px] text-brand-emerald">Council Appeal Ready</span>
             </div>
 
             {parkingRecords.length === 0 ? (
               <p className="text-secondary text-center py-4 font-mono text-[11px]">
-                No geotagged records stored yet. Click "Timestamp Geotagged Evidence Record" above when parking in a loading bay to generate council appeal proof.
+                No geotagged records stored yet. Click "Timestamp Geotagged Evidence Record" above when parking in a loading bay to log proof.
               </p>
             ) : (
               <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
@@ -512,10 +496,10 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                             triggerHapticFeedback('medium');
                             speakUkVoicePrompt('Generating formal council PCN representation letter.');
                           }}
-                          className="px-2 py-0.5 rounded bg-brand-cyan/20 hover:bg-brand-cyan/30 text-brand-cyan border border-brand-cyan/40 font-bold uppercase text-[9px] flex items-center gap-1 transition-colors"
+                          className="px-2 py-0.5 rounded bg-brand-cyan/20 hover:bg-brand-cyan/30 text-brand-cyan border border-brand-cyan/40 font-bold uppercase text-[9px] flex items-center gap-1 transition-colors cursor-pointer"
                         >
                           <FileText className="w-3 h-3" />
-                          <span>Appeal PCN</span>
+                          <span>Draft Ticket Appeal</span>
                         </button>
                         <span className="px-2 py-0.5 rounded bg-brand-emerald/15 text-brand-emerald border border-brand-emerald/30 font-bold uppercase text-[9px]">
                           Exemption Logged
@@ -528,7 +512,6 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
             )}
           </div>
 
-          {/* Clean Air Zone (CAZ / ULEZ) Compliance Checker */}
           <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-3 font-sans text-xs">
             <div className="flex items-center justify-between border-b border-subtle pb-2 font-mono font-bold text-primary uppercase">
               <div className="flex items-center gap-2">
@@ -545,7 +528,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                     setSelectedCityCAZ(zone.city);
                     triggerHapticFeedback('light');
                   }}
-                  className={`px-3 py-1.5 rounded-lg border font-mono text-xs shrink-0 transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg border font-mono text-xs shrink-0 transition-colors cursor-pointer ${
                     selectedCityCAZ === zone.city
                       ? 'bg-brand-cyan/20 border-brand-cyan text-brand-cyan font-bold'
                       : 'bg-inset border-subtle text-secondary'
@@ -573,7 +556,6 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
         </div>
       </div>
 
-      {/* PCN Appeal Generator Modal */}
       {appealRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-fade-in font-sans">
           <div className="w-full max-w-2xl bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -584,17 +566,17 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-primary font-mono">
-                    Statutory PCN Council Appeal Generator
+                    Council Parking Ticket Appeal Generator
                   </h2>
                   <p className="text-xs text-secondary">
-                    Traffic Management Act 2004 commercial loading exemption representation
+                    Traffic Management Act 2004 commercial loading representation
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => setAppealRecord(null)}
-                className="p-2 rounded-lg bg-surface text-secondary hover:text-primary border border-subtle transition-colors"
+                className="p-2 rounded-lg bg-surface text-secondary hover:text-primary border border-subtle transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -626,7 +608,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                 </div>
                 <div>
                   <label className="block text-secondary text-[11px] mb-1 font-sans font-semibold">
-                    Courier Name & Badge
+                    Courier Name &amp; Badge
                   </label>
                   <input
                     type="text"
@@ -643,13 +625,13 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-subtle font-sans">
                 <span className="text-[11px] text-secondary">
-                  Ready to submit to council appeals portal (e.g. Manchester, TfL, Birmingham).
+                  Ready to copy into council appeals portals (e.g. Manchester, TfL, Birmingham).
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleCopyAppealText}
-                    className="px-3 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="px-3 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Copy className="w-3.5 h-3.5" />
                     <span>{isCopyingAppeal ? 'Copied!' : 'Copy Appeal'}</span>
@@ -658,7 +640,7 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                   <button
                     type="button"
                     onClick={handleDownloadAppealTxt}
-                    className="px-3 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="px-3 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download .txt</span>
@@ -667,10 +649,10 @@ Verified via ShiftDrop UK In-Cab Telematics Engine`;
                   <button
                     type="button"
                     onClick={handlePrintAppeal}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
                   >
                     <Printer className="w-3.5 h-3.5" />
-                    <span>Print Representation</span>
+                    <span>Print Appeal</span>
                   </button>
                 </div>
               </div>

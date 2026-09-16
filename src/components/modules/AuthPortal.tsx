@@ -385,10 +385,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           <ShieldCheck className="w-8 h-8" />
         </div>
         <h1 className="text-2xl font-black text-primary tracking-tight font-mono">
-          ShiftDrop Auth
+          {authMode === 'login' ? 'Sign In to ShiftDrop' : 'Driver Registration'}
         </h1>
         <p className="text-secondary text-sm">
-          Secure sign-in for UK couriers.
+          Secure sign-in for UK couriers
         </p>
       </div>
 
@@ -573,14 +573,14 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
               </p>
               <div className="space-y-3">
                 <div className="relative">
-                  <label htmlFor="auth-licence-number" className="sr-only">UK Driver Licence Number</label>
+                  <label htmlFor="auth-licence-number" className="sr-only">UK Driving Licence Number</label>
                   <ShieldCheck className="w-4 h-4 text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     id="auth-licence-number"
                     name="licenceNumber"
                     type="text"
                     autoComplete="off"
-                    placeholder="UK Driver Licence Number"
+                    placeholder="UK Driving Licence Number"
                     value={licenceNumber}
                     onChange={(e) => setLicenceNumber(e.target.value)}
                     className="w-full bg-inset border border-subtle rounded-lg py-2.5 pl-9 pr-3 text-xs text-primary focus:outline-none focus:border-brand-cyan font-mono"
@@ -590,7 +590,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
             </div>
           )}
 
-          {/* Cloudflare Turnstile Bot Shield - Active across Web and Mobile */}
+          {/* Cloudflare Turnstile Bot Shield */}
           <div className="my-3 flex justify-center">
             <Turnstile
               siteKey={TURNSTILE_SITE_KEY}
@@ -607,12 +607,12 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-4 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+            className="w-full mt-4 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer shadow-md shadow-cyan-500/20"
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-canvas/30 border-t-canvas rounded-full animate-spin" />
             ) : (
-              <span>{authMode === 'login' ? 'Sign In' : 'Create Secure Account'}</span>
+              <span>{authMode === 'login' ? 'Sign In to Workstation' : 'Register Driver Account'}</span>
             )}
           </button>
         </form>
@@ -690,7 +690,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({
                 <button
                   type="submit"
                   disabled={isSendingReset}
-                  className="flex-1 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-1 py-3 rounded-xl bg-brand-cyan text-canvas font-bold text-xs uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-cyan-500/20"
                 >
                   {isSendingReset ? (
                     <div className="w-4 h-4 border-2 border-canvas/30 border-t-canvas rounded-full animate-spin" />

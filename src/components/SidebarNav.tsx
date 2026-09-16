@@ -63,7 +63,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   ];
 
   const handleNavClick = (moduleId: ActiveModuleId) => {
-    // If it's a gated PRO module and user is NOT subscribed, route to 'pro' upgrade
     if (PRO_MODULE_IDS.includes(moduleId) && !isProUser) {
       onSelectModule('pro');
     } else {
@@ -98,15 +97,15 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
     },
     {
       id: 'loadin',
-      label: 'Spatial Load-In',
-      shortLabel: 'Load-In',
+      label: 'Van Parcel Map',
+      shortLabel: 'Parcel Map',
       icon: Box,
       category: 'Dispatch & Ops',
     },
     {
       id: 'doorstep',
-      label: 'Doorstep Intel Vault',
-      shortLabel: 'Doorstep Intel',
+      label: 'Customer & Gate Notes',
+      shortLabel: 'Gate Notes',
       icon: Key,
       badge: isProUser ? undefined : 'PRO',
       badgeColor: proBadgeStyle,
@@ -114,8 +113,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
     },
     {
       id: 'returns',
-      label: 'Depot Returns',
-      shortLabel: 'Returns',
+      label: 'Depot Returns Log',
+      shortLabel: 'Returns Log',
       icon: RotateCcw,
       badge: returnsCount > 0 ? returnsCount : undefined,
       badgeColor: 'bg-red-500 text-white',
@@ -148,8 +147,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
     },
     {
       id: 'pcn',
-      label: 'PCN Shield & Appeals',
-      shortLabel: 'PCN Shield',
+      label: 'Parking Ticket Appeals',
+      shortLabel: 'Appeals',
       icon: ShieldAlert,
       badge: isProUser ? undefined : 'PRO',
       badgeColor: proBadgeStyle,
@@ -186,7 +185,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
 
   return (
     <>
-      {/* Mobile/Tablet Overlay */}
       {isOpenMobileSidebar && (
         <div 
           className="fixed inset-0 bg-canvas/80 backdrop-blur-sm z-40 lg:hidden"
@@ -195,7 +193,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         />
       )}
 
-      {/* Sidebar Container */}
       <aside
         id="app-navigation-sidebar"
         className={`fixed inset-y-0 left-0 z-50 flex flex-col shrink-0 bg-surface border-r border-subtle transition-transform duration-300 select-none 
@@ -205,7 +202,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           isCollapsedDesktop ? 'lg:w-16' : 'w-64 lg:w-60'
         }`}
       >
-        {/* Sidebar Top: Compact Collapse Toggle */}
         <div className="flex items-center justify-between p-3 border-b border-subtle h-14 sm:h-16">
           {(!isCollapsedDesktop || !isOpenMobileSidebar) && (
             <div className={`flex items-center gap-2 overflow-hidden px-1 ${isCollapsedDesktop ? 'lg:hidden' : ''}`}>
@@ -215,20 +211,18 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             </div>
           )}
           
-          {/* Close button on mobile/tablet */}
           <button
             onClick={onCloseMobileSidebar}
-            className="p-1.5 rounded-lg bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors lg:hidden ml-auto"
+            className="p-1.5 rounded-lg bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors lg:hidden ml-auto cursor-pointer"
             aria-label="Close Sidebar"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          {/* Desktop collapse toggle */}
           <button
             id="btn-toggle-desktop-collapse"
             onClick={onToggleCollapseDesktop}
-            className={`hidden lg:flex p-1.5 rounded-lg bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors ${
+            className={`hidden lg:flex p-1.5 rounded-lg bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors cursor-pointer ${
               isCollapsedDesktop ? 'mx-auto' : 'ml-auto'
             }`}
             title={isCollapsedDesktop ? 'Expand Sidebar' : 'Collapse Sidebar'}
@@ -242,7 +236,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           </button>
         </div>
 
-        {/* Navigation Item List */}
         <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1.5">
           {rawNavItems.map((item) => {
             const Icon = item.icon;
@@ -254,7 +247,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 key={item.id}
                 id={`nav-item-${item.id}`}
                 onClick={() => handleNavClick(item.id)}
-                className={`flex items-center rounded-xl transition-all relative group ${
+                className={`flex items-center rounded-xl transition-all relative group cursor-pointer touch-manipulation ${
                   isItemCollapsed
                     ? 'lg:w-12 lg:h-12 lg:mx-auto lg:justify-center lg:p-0 w-full px-3 py-3 min-h-11 gap-3 text-left'
                     : 'w-full px-3 py-3 min-h-11 gap-3 text-left'
@@ -289,7 +282,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                   )}
                 </div>
 
-                {/* Tooltip on collapsed desktop rail */}
                 {isItemCollapsed && (
                   <div className="hidden lg:block fixed left-20 px-2.5 py-1.5 bg-surface text-primary text-xs rounded-lg shadow-2xl border border-subtle whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 font-sans">
                     {item.label}
@@ -307,7 +299,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           })}
         </div>
 
-        {/* Sidebar Footer */}
         <div className="p-3 lg:p-2.5 border-t border-subtle bg-inset">
           <div className={`text-center ${isCollapsedDesktop ? 'lg:hidden' : ''}`}>
             <div className="flex items-center justify-center gap-1 text-xs lg:text-[11px] font-mono text-secondary">

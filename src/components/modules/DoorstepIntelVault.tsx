@@ -40,7 +40,7 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Form State for new intel
+  // Form State
   const [formPostcode, setFormPostcode] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [formCategory, setFormCategory] = useState<DoorstepCategory>('Gate Code');
@@ -126,10 +126,9 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
 
     onAddIntel(newItem);
     triggerHapticFeedback('success');
-    speakUkVoicePrompt(`Doorstep intelligence saved for ${cleanPostcode}.`);
+    speakUkVoicePrompt(`Customer access note saved for ${cleanPostcode}.`);
     setIsAddModalOpen(false);
 
-    // Reset Form
     setFormPostcode('');
     setFormAddress('');
     setFormAccessCode('');
@@ -158,7 +157,6 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
 
   return (
     <div id="module-doorstep-intel-vault" className="max-w-6xl mx-auto p-3 sm:p-5 space-y-5 font-sans">
-      {/* Header Banner */}
       <div className="bg-surface border border-subtle rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1 min-w-0 flex-1">
@@ -169,14 +167,14 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
                   <h1 className="text-lg sm:text-xl font-bold text-primary font-mono tracking-tight">
-                    Doorstep Intel &amp; Gate Code Vault
+                    Customer &amp; Gate Notes
                   </h1>
                   <span className="inline-flex items-center whitespace-nowrap shrink-0 text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/40 shadow-xs">
                     UK Ground Intel
                   </span>
                 </div>
                 <p className="text-xs text-secondary mt-1 leading-relaxed">
-                  Community-powered &amp; private database of gate codes, tradesman buzzers, safe places, and canine alerts
+                  Fast access to ring codes, tradesman buzzers, safe places, and canine alerts
                 </p>
               </div>
             </div>
@@ -188,28 +186,27 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                 setIsAddModalOpen(true);
                 triggerHapticFeedback('medium');
               }}
-              className="px-4 py-2.5 rounded-xl bg-brand-cyan text-canvas text-xs font-bold hover:bg-brand-cyan/90 transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/20 active:scale-95 whitespace-nowrap"
+              className="px-4 py-2.5 rounded-xl bg-brand-cyan text-canvas text-xs font-bold hover:bg-brand-cyan/90 transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/20 active:scale-95 whitespace-nowrap cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Doorstep Intel</span>
+              <span>Add Gate Note</span>
             </button>
           </div>
         </div>
 
-        {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-subtle">
           <div className="p-3 rounded-xl bg-inset border border-subtle">
-            <span className="text-[10px] font-mono uppercase text-secondary block font-bold">Total Intel Records</span>
+            <span className="text-[10px] font-mono uppercase text-secondary block font-bold">Total Saved Notes</span>
             <span className="text-base font-bold text-primary font-mono">{intelList.length} Entries</span>
           </div>
           <div className="p-3 rounded-xl bg-inset border border-subtle">
-            <span className="text-[10px] font-mono uppercase text-secondary block font-bold">Gate &amp; Safe Codes</span>
+            <span className="text-[10px] font-mono uppercase text-secondary block font-bold">Access Codes</span>
             <span className="text-base font-bold text-brand-cyan font-mono">
               {intelList.filter((i) => i.accessCode).length} Saved
             </span>
           </div>
           <div className="p-3 rounded-xl bg-inset border border-subtle">
-            <span className="text-[10px] font-mono uppercase text-secondary block font-bold">Hazards &amp; Dogs Flagged</span>
+            <span className="text-[10px] font-mono uppercase text-secondary block font-bold">Hazards &amp; Dogs</span>
             <span className="text-base font-bold text-amber-400 font-mono">
               {intelList.filter((i) => i.hazardWarning).length} Alerts
             </span>
@@ -221,15 +218,13 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
       <div className="bg-surface border border-subtle rounded-2xl p-4 shadow-xl space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* Search Box */}
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search postcode (e.g. M1 4BT), street, building, or code..."
+              placeholder="Search postcode (e.g. M1 4BT), street, access code, or notes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 rounded-xl bg-inset border border-subtle text-xs text-primary focus:border-brand-cyan focus:outline-none placeholder:text-secondary/70 font-mono"
@@ -237,33 +232,32 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary text-xs"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary text-xs cursor-pointer"
               >
                 ✕
               </button>
             )}
           </div>
 
-          {/* Mode Switcher */}
           <div className="flex items-center rounded-xl bg-inset border border-subtle p-1 shrink-0 text-xs font-mono font-bold">
             <button
               onClick={() => {
                 setFilterMode('all');
                 triggerHapticFeedback('light');
               }}
-              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
                 filterMode === 'all' ? 'bg-surface text-brand-cyan shadow-sm' : 'text-secondary hover:text-primary'
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
-              <span>All Intel</span>
+              <span>All Notes</span>
             </button>
             <button
               onClick={() => {
                 setFilterMode('community');
                 triggerHapticFeedback('light');
               }}
-              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
                 filterMode === 'community'
                   ? 'bg-surface text-brand-emerald shadow-sm'
                   : 'text-secondary hover:text-primary'
@@ -277,7 +271,7 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                 setFilterMode('my_notes');
                 triggerHapticFeedback('light');
               }}
-              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
                 filterMode === 'my_notes' ? 'bg-surface text-indigo-400 shadow-sm' : 'text-secondary hover:text-primary'
               }`}
             >
@@ -287,7 +281,6 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
           </div>
         </div>
 
-        {/* Category Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
           {categories.map((cat) => (
             <button
@@ -296,7 +289,7 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                 setSelectedCategory(cat);
                 triggerHapticFeedback('light');
               }}
-              className={`px-3 py-1.5 rounded-lg border transition-all shrink-0 font-semibold ${
+              className={`px-3 py-1.5 rounded-lg border transition-all shrink-0 font-semibold cursor-pointer ${
                 selectedCategory === cat
                   ? 'bg-brand-cyan/20 border-brand-cyan text-brand-cyan'
                   : 'bg-inset border-subtle text-secondary hover:text-primary'
@@ -308,14 +301,13 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
         </div>
       </div>
 
-      {/* Intel Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredIntel.length === 0 ? (
           <div className="col-span-full p-8 text-center rounded-2xl bg-surface border border-subtle space-y-3">
             <Info className="w-8 h-8 text-secondary mx-auto" />
-            <p className="text-sm text-primary font-bold">No Doorstep Intel Found</p>
+            <p className="text-sm text-primary font-bold">No Customer Notes Found</p>
             <p className="text-xs text-secondary max-w-md mx-auto">
-              No access codes or gate notes match your search. Click "+ Add Doorstep Intel" to log the first code for this area!
+              No access codes or gate notes match your search. Tap "+ Add Gate Note" to save instructions for this stop.
             </p>
           </div>
         ) : (
@@ -325,7 +317,6 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
               className="bg-surface border border-subtle hover:border-brand-cyan/40 rounded-2xl p-4 shadow-lg transition-all space-y-3 flex flex-col justify-between relative overflow-hidden group"
             >
               <div className="space-y-2.5">
-                {/* Header Row: Postcode & Category */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-1 rounded-lg bg-brand-cyan/15 border border-brand-cyan/30 text-brand-cyan font-mono font-bold text-xs tracking-wider">
@@ -339,23 +330,21 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
 
                   {item.isCommunityShared ? (
                     <span className="text-[10px] font-mono text-emerald-400/90 flex items-center gap-1 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                      <Globe className="w-3 h-3" />
+                      <Globe className="w-3.5 h-3.5" />
                       <span>Verified Community</span>
                     </span>
                   ) : (
                     <span className="text-[10px] font-mono text-indigo-400 flex items-center gap-1 bg-indigo-950/40 border border-indigo-500/30 px-2 py-0.5 rounded-full">
-                      <Lock className="w-3 h-3" />
+                      <Lock className="w-3.5 h-3.5" />
                       <span>Private</span>
                     </span>
                   )}
                 </div>
 
-                {/* Building / Street */}
                 <div>
                   <h3 className="text-sm font-bold text-primary">{item.addressOrBuilding}</h3>
                 </div>
 
-                {/* Key Access Code Highlight (if present) */}
                 {item.accessCode && (
                   <div className="p-2.5 rounded-xl bg-cyan-950/40 border border-brand-cyan/40 flex items-center justify-between gap-2">
                     <div className="space-y-0.5">
@@ -369,7 +358,7 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
 
                     <button
                       onClick={() => handleCopyCode(item.id, item.accessCode!)}
-                      className="px-2.5 py-1.5 rounded-lg bg-brand-cyan hover:bg-cyan-400 text-canvas text-xs font-bold flex items-center gap-1 transition-all active:scale-95 shadow-sm"
+                      className="px-2.5 py-1.5 rounded-lg bg-brand-cyan hover:bg-cyan-400 text-canvas text-xs font-bold flex items-center gap-1 transition-all active:scale-95 shadow-sm cursor-pointer"
                       title="Copy code"
                     >
                       {copiedId === item.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -378,7 +367,6 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                   </div>
                 )}
 
-                {/* Tradesman Buzzer Rule (if present) */}
                 {item.tradesmanBuzzerRule && (
                   <div className="p-2 rounded-lg bg-indigo-950/30 border border-indigo-500/30 text-indigo-300 text-xs font-mono flex items-start gap-2">
                     <Bell className="w-3.5 h-3.5 shrink-0 mt-0.5 text-indigo-400" />
@@ -386,7 +374,6 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                   </div>
                 )}
 
-                {/* Canine / Hazard Warning (if present) */}
                 {item.hazardWarning && (
                   <div className="p-2 rounded-lg bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs font-mono flex items-start gap-2">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
@@ -394,13 +381,11 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                   </div>
                 )}
 
-                {/* Delivery Notes */}
                 <div className="text-xs text-secondary leading-relaxed bg-inset p-2.5 rounded-xl border border-subtle">
                   <p>{item.instructionNotes}</p>
                 </div>
               </div>
 
-              {/* Card Footer: Metadata, Voice Readout, Upvote & SatNav */}
               <div className="pt-2 border-t border-subtle flex items-center justify-between text-[11px] font-mono text-secondary">
                 <div className="flex items-center gap-3">
                   <button
@@ -408,8 +393,8 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                       onUpvoteIntel(item.id);
                       triggerHapticFeedback('light');
                     }}
-                    className="flex items-center gap-1 hover:text-brand-emerald transition-colors"
-                    title="Upvote helpful intel"
+                    className="flex items-center gap-1 hover:text-brand-emerald transition-colors cursor-pointer"
+                    title="Upvote helpful note"
                   >
                     <ThumbsUp className="w-3.5 h-3.5" />
                     <span>{item.upvotes}</span>
@@ -420,8 +405,8 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleVoiceReadout(item)}
-                    className="p-1.5 rounded-lg bg-inset hover:bg-subtle border border-subtle text-primary hover:text-brand-cyan transition-colors"
-                    title="Vocalise intel in British voice"
+                    className="p-1.5 rounded-lg bg-inset hover:bg-subtle border border-subtle text-primary hover:text-brand-cyan transition-colors cursor-pointer"
+                    title="Read aloud"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
                   </button>
@@ -442,7 +427,6 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
         )}
       </div>
 
-      {/* ADD INTEL MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-fade-in font-sans">
           <div className="w-full max-w-lg bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -453,17 +437,17 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-primary font-mono">
-                    Log Doorstep Intelligence
+                    Save Access &amp; Gate Notes
                   </h2>
                   <p className="text-xs text-secondary">
-                    Save access codes, safe places, and hazards for this address
+                    Save gate codes, safe places, and hazards for this address
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-2 rounded-lg bg-surface text-secondary hover:text-primary border border-subtle transition-colors"
+                className="p-2 rounded-lg bg-surface text-secondary hover:text-primary border border-subtle transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -527,7 +511,7 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                     placeholder="e.g. #4492 or KeySafe 1024"
                     value={formAccessCode}
                     onChange={(e) => setFormAccessCode(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold text-brand-cyan focus:border-brand-cyan focus:outline-none"
+                    className="w-full px-3 py-2 rounded-lg bg-inset border border-subtle  font-bold text-brand-cyan focus:border-brand-cyan focus:outline-none"
                   />
                 </div>
 
@@ -591,15 +575,15 @@ export const DoorstepIntelVault: React.FC<DoorstepIntelVaultProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-inset hover:bg-subtle text-secondary font-bold text-xs"
+                  className="px-4 py-2 rounded-xl bg-inset hover:bg-subtle text-secondary font-bold text-xs cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-brand-cyan hover:bg-cyan-400 text-canvas font-bold text-xs transition-all shadow-md active:scale-95"
+                  className="px-5 py-2 rounded-xl bg-brand-cyan hover:bg-cyan-400 text-canvas font-bold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
                 >
-                  Save Intel
+                  Save Notes
                 </button>
               </div>
             </form>

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   RotateCcw,
-  Barcode, ScanLine,
+  Barcode,
+  ScanLine,
   CheckCircle2,
   AlertTriangle,
   FileCheck,
   Building,
   Printer,
-  Sparkles,
   X,
   Copy,
   Check,
@@ -86,7 +86,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>ShiftDrop Depot Debrief Slip - ${nowFormatted}</title>
+          <title>ShiftDrop Depot Returns Log - ${nowFormatted}</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; margin: 20px; color: #111; }
             .slip-card { max-width: 480px; margin: 0 auto; border: 2px dashed #333; padding: 20px; }
@@ -160,7 +160,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
   const getSlipText = () => {
     return [
       '========================================',
-      'SHIFTDROP UK - DEPOT RETURNS DEBRIEF SLIP',
+      'SHIFTDROP UK - DEPOT RETURNS LOG SLIP',
       '========================================',
       `Date/Time:       ${nowFormatted}`,
       `Depot Hub:       Manchester DPD / Flex Hub (M17)`,
@@ -202,7 +202,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
     const element = document.createElement('a');
     const file = new Blob([getSlipText()], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
-    element.download = `debrief_slip_${Date.now()}.txt`;
+    element.download = `depot_returns_log_${Date.now()}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -210,7 +210,6 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
 
   return (
     <div id="module-depot-returns-debrief" className="max-w-5xl mx-auto p-3 sm:p-5 space-y-5">
-      {/* Top Banner */}
       <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -219,10 +218,10 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-primary font-mono flex items-center gap-2">
-                Depot Returns Debrief
+                Depot Returns Log
               </h1>
               <p className="text-xs text-secondary">
-                End-of-route parcel handover manifest & barcode validation marshal
+                Log undelivered parcels and verify returns with the depot marshal
               </p>
             </div>
           </div>
@@ -231,16 +230,15 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
             <button
               id="btn-print-debrief-receipt"
               onClick={handlePrintDebrief}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-xs font-bold text-primary transition-colors"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-xs font-bold text-primary transition-colors cursor-pointer"
             >
               <Printer className="w-4 h-4 text-brand-cyan" />
-              <span>Print Debrief Slip</span>
+              <span>Print Handover Slip</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Summary Stat Counters */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
         <div className="p-4 rounded-2xl bg-surface border border-subtle space-y-1">
           <span className="text-secondary block text-[10px] uppercase">Parcels to Return</span>
@@ -273,7 +271,6 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
         </div>
       </div>
 
-      {/* Barcode Check-In Scanner Form */}
       <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-3">
         <div className="flex items-center gap-2 border-b border-subtle pb-2 text-xs font-mono font-bold text-primary uppercase">
           <Barcode className="w-4 h-4 text-brand-cyan" />
@@ -295,11 +292,10 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  // Simulate a camera scan
                   setScannedBarcode('GB' + Math.floor(Math.random() * 10000000000));
                   triggerHapticFeedback('light');
                 }}
-                className="absolute right-2 top-1.5 p-1.5 rounded-lg bg-subtle text-brand-cyan hover:bg-brand-cyan/20 transition-colors"
+                className="absolute right-2 top-1.5 p-1.5 rounded-lg bg-subtle text-brand-cyan hover:bg-brand-cyan/20 transition-colors cursor-pointer"
                 title="Use Camera Scanner"
               >
                 <ScanLine className="w-4 h-4" />
@@ -310,7 +306,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
           <button
             id="btn-verify-return-barcode"
             type="submit"
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-brand-cyan hover:opacity-90 text-canvas font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-brand-cyan hover:opacity-90 text-canvas font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
           >
             <CheckCircle2 className="w-4 h-4 font-bold" />
             <span>Validate Return</span>
@@ -322,7 +318,6 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
         )}
       </div>
 
-      {/* Manifest of Returned Parcels */}
       <div className="bg-surface border border-subtle rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex items-center justify-between border-b border-subtle pb-3">
           <div className="flex items-center gap-2">
@@ -334,7 +329,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
           {returnedParcels.length > 0 && (
             <button
               onClick={onClearAllReturns}
-              className="text-[11px] text-secondary hover:text-red-400 transition-colors"
+              className="text-[11px] text-secondary hover:text-red-400 transition-colors cursor-pointer"
             >
               Clear All Returns
             </button>
@@ -369,7 +364,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
                   </span>
                   <button
                     onClick={() => onCheckInReturn(parcel.id)}
-                    className="px-3 py-1.5 rounded-lg bg-brand-emerald hover:bg-emerald-600 text-canvas font-bold text-xs transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-brand-emerald hover:bg-emerald-600 text-canvas font-bold text-xs transition-colors cursor-pointer"
                   >
                     Check In ✓
                   </button>
@@ -386,11 +381,9 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
         )}
       </div>
 
-      {/* Debrief Slip Modal */}
       {showPrintModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm overflow-y-auto">
           <div className="relative w-full max-w-xl bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden my-auto">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-4 bg-inset border-b border-subtle">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-cyan-950/60 border border-cyan-800 text-brand-cyan">
@@ -398,41 +391,38 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-primary font-mono">
-                    Depot Handover Debrief Slip
+                    Depot Handover Log Slip
                   </h3>
                   <p className="text-[11px] text-secondary">
-                    Official courier proof of delivery &amp; returns handover
+                    Official courier proof of returns handover
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => setShowPrintModal(false)}
-                className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-subtle transition-colors"
+                className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-subtle transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Receipt Preview (Thermal/A4 courier docket) */}
             <div className="p-4 sm:p-6 max-h-[65vh] overflow-y-auto bg-black/20">
               <div
                 id="printable-debrief-slip"
                 className="bg-white text-slate-900 rounded-xl p-5 sm:p-6 font-mono text-xs shadow-inner border border-slate-300 space-y-4"
               >
-                {/* Header */}
                 <div className="text-center pb-3 border-b border-dashed border-slate-400 space-y-1">
                   <div className="flex items-center justify-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-900">
                     <ShieldCheck className="w-4 h-4 text-cyan-600" />
                     <span>ShiftDrop UK Hub Handover Manifest</span>
                   </div>
                   <div className="text-[10px] text-slate-500 uppercase">
-                    Depot Returns &amp; Delivery Debrief
+                    Depot Returns &amp; Delivery Log
                   </div>
                   <div className="text-[11px] font-bold text-slate-800 pt-1">{nowFormatted}</div>
                 </div>
 
-                {/* Hub and Driver Details */}
                 <div className="grid grid-cols-2 gap-2 text-[11px] pb-3 border-b border-dashed border-slate-300">
                   <div>
                     <span className="text-slate-500 block text-[10px] uppercase">Hub / Depot:</span>
@@ -446,7 +436,6 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
                   </div>
                 </div>
 
-                {/* Summary Metrics */}
                 <div className="bg-slate-100 rounded-lg p-3 space-y-1.5 border border-slate-200">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-600">Total Route Drops:</span>
@@ -471,7 +460,6 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
                   </div>
                 </div>
 
-                {/* Return Items Manifest */}
                 <div className="space-y-2">
                   <div className="font-bold text-[11px] uppercase tracking-wider text-slate-800 border-b border-slate-300 pb-1">
                     Returned Items Inventory ({returnedParcels.length})
@@ -501,7 +489,6 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
                   )}
                 </div>
 
-                {/* Signatures & Marshal Handover */}
                 <div className="pt-3 border-t border-dashed border-slate-400 space-y-4 text-[10px]">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
@@ -523,12 +510,11 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
               </div>
             </div>
 
-            {/* Modal Actions */}
             <div className="p-4 bg-inset border-t border-subtle flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopySlipText}
-                  className="px-3 py-2 rounded-xl bg-surface hover:bg-subtle border border-subtle text-primary font-bold text-xs flex items-center gap-1.5 transition-colors"
+                  className="px-3 py-2 rounded-xl bg-surface hover:bg-subtle border border-subtle text-primary font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {copiedSlip ? (
                     <>
@@ -545,7 +531,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
 
                 <button
                   onClick={handleDownloadSlipText}
-                  className="px-3 py-2 rounded-xl bg-surface hover:bg-subtle border border-subtle text-primary font-bold text-xs flex items-center gap-1.5 transition-colors"
+                  className="px-3 py-2 rounded-xl bg-surface hover:bg-subtle border border-subtle text-primary font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-secondary" />
                   <span>Download .txt</span>
@@ -555,7 +541,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={openPrintableInNewWindow}
-                  className="px-3.5 py-2 rounded-xl bg-surface hover:bg-subtle border border-subtle text-brand-cyan font-bold text-xs flex items-center gap-1.5 transition-colors"
+                  className="px-3.5 py-2 rounded-xl bg-surface hover:bg-subtle border border-subtle text-brand-cyan font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Open in new window (bypasses iframe print sandbox restrictions)"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -564,7 +550,7 @@ export const DepotReturnsDebrief: React.FC<DepotReturnsDebriefProps> = ({
 
                 <button
                   onClick={executeBrowserPrint}
-                  className="px-4 py-2 rounded-xl bg-brand-cyan hover:opacity-90 text-canvas font-black text-xs flex items-center gap-2 shadow-md transition-all active:scale-95"
+                  className="px-4 py-2 rounded-xl bg-brand-cyan hover:opacity-90 text-canvas font-black text-xs flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
                   <span>Print Slip Now</span>

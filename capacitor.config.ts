@@ -6,11 +6,11 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    cleartext: true,
+    cleartext: false,
     hostname: 'localhost',
   },
   android: {
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: false,
   },
   plugins: {
     SplashScreen: {

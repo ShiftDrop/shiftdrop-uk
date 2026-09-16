@@ -70,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
         {onOpenSidebar && (
           <button
             onClick={onOpenSidebar}
-            className="p-1.5 -ml-1.5 rounded-lg text-secondary hover:text-primary hover:bg-subtle transition-colors lg:hidden"
+            className="p-1.5 -ml-1.5 rounded-lg text-secondary hover:text-primary hover:bg-subtle transition-colors lg:hidden cursor-pointer"
             aria-label="Open Sidebar Navigation"
           >
             <Menu className="w-5 h-5" />
@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
       </div>
 
-      {/* Middle/Right: GPS, Weather Telemetry, Driver Profile & Settings */}
+      {/* Middle/Right: Telemetry, Glowing Voice Pill & Quick Actions */}
       <div className="flex items-center gap-1.5 sm:gap-4">
         <PWAInstallButton compact />
 
@@ -135,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="btn-portal-landing"
             onClick={() => onOpenPortal(activePortal === 'landing' ? null : 'landing')}
-            className={`px-2 py-1 text-xs rounded font-medium flex items-center gap-1 transition-colors ${
+            className={`px-2 py-1 text-xs rounded font-medium flex items-center gap-1 transition-colors cursor-pointer ${
               activePortal === 'landing'
                 ? 'bg-brand-cyan text-canvas font-bold'
                 : 'text-secondary hover:text-primary'
@@ -147,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="btn-portal-studio"
             onClick={() => onOpenPortal(activePortal === 'studio' ? null : 'studio')}
-            className={`px-2 py-1 text-xs rounded font-medium flex items-center gap-1 transition-colors ${
+            className={`px-2 py-1 text-xs rounded font-medium flex items-center gap-1 transition-colors cursor-pointer ${
               activePortal === 'studio'
                 ? 'bg-brand-emerald text-canvas font-bold'
                 : 'text-secondary hover:text-primary'
@@ -157,6 +157,32 @@ export const Header: React.FC<HeaderProps> = ({
             <span>PixelNotch Studio</span>
           </button>
         </div>
+
+        {/* High-Visibility In-Cab Voice Pill Button */}
+        {onToggleVoice && (
+          <button
+            id="btn-header-voice"
+            type="button"
+            onClick={onToggleVoice}
+            className={`h-9 sm:h-10 px-3 sm:px-3.5 rounded-full border-2 transition-all active:scale-95 flex items-center gap-2 cursor-pointer shadow-md touch-manipulation ${
+              isVoiceActive
+                ? 'bg-brand-emerald text-canvas border-emerald-300 shadow-emerald-500/40 animate-pulse'
+                : 'bg-brand-cyan/15 text-brand-cyan hover:bg-brand-cyan/25 border-brand-cyan shadow-cyan-500/20'
+            }`}
+            aria-label="Hands-Free UK Voice Assistant"
+            title="Hands-Free UK Voice Assistant (Earnings, Route, Drops)"
+          >
+            <Mic className={`w-4 h-4 shrink-0 ${isVoiceActive ? 'animate-bounce' : 'text-brand-cyan'}`} />
+            <span className="text-xs font-mono font-black tracking-wider uppercase whitespace-nowrap">
+              {isVoiceActive ? 'Listening...' : 'Voice Assist'}
+            </span>
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                isVoiceActive ? 'bg-canvas animate-ping' : 'bg-brand-cyan animate-pulse'
+              }`}
+            />
+          </button>
+        )}
 
         {/* Driver Profile Badge */}
         <button
@@ -188,32 +214,12 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </button>
 
-        {/* Hands-Free UK Voice Assistant Button */}
-        {onToggleVoice && (
-          <button
-            id="btn-header-voice"
-            onClick={onToggleVoice}
-            className={`p-1.5 sm:p-2 rounded-xl border transition-all active:scale-95 flex items-center gap-1.5 ${
-              isVoiceActive
-                ? 'bg-brand-cyan text-canvas border-white shadow-lg shadow-cyan-500/30 animate-pulse'
-                : 'bg-inset text-brand-cyan hover:text-primary hover:bg-subtle border-brand-cyan/40'
-            }`}
-            aria-label="Hands-Free UK Voice Assistant"
-            title="UK Hands-Free Voice Assistant (Earnings, Route, Drops)"
-          >
-            <Mic className="w-4 h-4 shrink-0" />
-            <span className="hidden md:inline text-xs font-mono font-bold">
-              {isVoiceActive ? 'Listening...' : 'Voice'}
-            </span>
-          </button>
-        )}
-
         {/* Share Workstation Action */}
         {onOpenShare && (
           <button
             id="btn-header-share"
             onClick={onOpenShare}
-            className="p-1.5 sm:p-2 rounded-xl bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors active:scale-95"
+            className="p-1.5 sm:p-2 rounded-xl bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors active:scale-95 cursor-pointer"
             aria-label="Share & Export Workstation"
             title="1-Click Share & Export"
           >
@@ -225,7 +231,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           id="btn-header-theme"
           onClick={onToggleTheme}
-          className="p-1.5 sm:p-2 rounded-xl bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors active:scale-95"
+          className="p-1.5 sm:p-2 rounded-xl bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors active:scale-95 cursor-pointer"
           aria-label="Toggle Theme"
           title="Toggle Light/Dark Mode"
         >
@@ -236,7 +242,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           id="btn-header-settings"
           onClick={onOpenSettings}
-          className="p-1.5 sm:p-2 rounded-xl bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors active:scale-95"
+          className="p-1.5 sm:p-2 rounded-xl bg-inset text-secondary hover:text-brand-cyan hover:bg-subtle border border-subtle transition-colors active:scale-95 cursor-pointer"
           aria-label="Driver Settings Modal"
           title="Driver Settings & Cloud Storage"
         >

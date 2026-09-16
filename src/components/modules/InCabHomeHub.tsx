@@ -86,7 +86,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
 
   const handleLaunchShift = () => {
     triggerHapticFeedback('success');
-    speakUkVoicePrompt(`Clocked in for ${selectedNetwork} block. Opening parcel spatial organiser.`);
+    speakUkVoicePrompt(`Clocked in for ${selectedNetwork} block. Opening van parcel map.`);
     onStartShift(
       selectedNetwork,
       typeof startOdoInput === 'number' ? startOdoInput : 0,
@@ -153,7 +153,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
               In-Cab Workstation Hub
             </h1>
             <p className="text-xs text-secondary max-w-xl">
-              Launch new courier blocks, monitor live road telemetry, track real-time AMAP tax write-offs, and synchronise parcel load-ins.
+              Launch delivery blocks, track road weather conditions, log HMRC AMAP mileage write-offs, and organise your vehicle parcels.
             </p>
           </div>
 
@@ -162,11 +162,11 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-doorstep-intel"
               onClick={() => handleProGatedNavigation('doorstep')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-cyan/40 text-brand-cyan text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-              title="Open Doorstep Intel & Gate Code Vault"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-inset hover:bg-subtle border border-brand-cyan/40 text-brand-cyan text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer touch-manipulation"
+              title="Open Customer Access & Gate Codes Vault"
             >
               <Key className="w-4 h-4" />
-              <span>Gate Codes</span>
+              <span>Access Codes</span>
               {!isProUser && (
                 <span className="px-1.5 py-0.2 text-[9px] font-bold font-mono rounded bg-amber-400/15 text-amber-400 border border-amber-400/30 ml-0.5">
                   PRO
@@ -176,8 +176,8 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-shift-calc"
               onClick={() => handleProGatedNavigation('calculator')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-emerald/40 text-brand-emerald text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-              title="Open Real Hourly Rate & Profit Calculator"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-inset hover:bg-subtle border border-brand-emerald/40 text-brand-emerald text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer touch-manipulation"
+              title="Open Hourly Rate & Net Profit Calculator"
             >
               <Calculator className="w-4 h-4" />
               <span>Shift Profit</span>
@@ -190,7 +190,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-active-dispatch"
               onClick={() => onNavigateTo('hud')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer touch-manipulation"
             >
               <Navigation className="w-4 h-4 text-brand-cyan" />
               <span>Active HUD</span>
@@ -198,10 +198,10 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-quick-spatial-loadin"
               onClick={() => onNavigateTo('loadin')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-extrabold transition-all shadow-lg hover:opacity-95 active:scale-95 cursor-pointer"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-black transition-all shadow-lg hover:opacity-95 active:scale-95 cursor-pointer touch-manipulation"
             >
               <Box className="w-4 h-4" />
-              <span>Spatial Load-In</span>
+              <span>Van Parcel Map</span>
             </button>
           </div>
         </div>
@@ -303,34 +303,42 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             )}
           </div>
 
-          {/* Courier Network Selector */}
-          <div>
-            <span className="block text-xs font-semibold text-secondary mb-2">
-              Select Courier Network
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-              {NETWORKS.map((net) => (
-                <button
-                  key={net}
-                  id={`btn-network-${net.toLowerCase().replace(/\s+/g, '-')}`}
-                  type="button"
-                  onClick={() => {
-                    setSelectedNetwork(net);
-                    triggerHapticFeedback('light');
-                  }}
-                  className={`p-2 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
-                    selectedNetwork === net
-                      ? 'bg-brand-cyan/15 border-brand-cyan text-primary shadow-sm'
-                      : 'bg-inset border-subtle text-secondary hover:text-primary'
-                  }`}
-                >
-                  {net}
-                </button>
-              ))}
+          {/* Courier Network Selector - Glove-friendly horizontal swipe bar */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-secondary">
+                Select Courier Network
+              </span>
+              <span className="text-[10px] font-mono text-secondary/60 uppercase">
+                Swipe to choose
+              </span>
+            </div>
+            <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 no-scrollbar touch-pan-x">
+              {NETWORKS.map((net) => {
+                const isSelected = selectedNetwork === net;
+                return (
+                  <button
+                    key={net}
+                    id={`btn-network-${net.toLowerCase().replace(/\s+/g, '-')}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedNetwork(net);
+                      triggerHapticFeedback('light');
+                    }}
+                    className={`shrink-0 min-w-[120px] min-h-[52px] px-4 py-2.5 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer touch-manipulation active:scale-95 flex items-center justify-center ${
+                      isSelected
+                        ? 'bg-brand-cyan text-canvas border-brand-cyan shadow-lg shadow-cyan-500/25'
+                        : 'bg-inset border-subtle text-secondary hover:text-primary hover:border-brand-cyan/40'
+                    }`}
+                  >
+                    {net}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Rates & Odometer Inputs (A11y htmlFor labels added) */}
+          {/* Rates & Odometer Inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
             <div>
               <label htmlFor="input-start-odometer" className="block text-secondary mb-1 font-sans font-semibold">
@@ -342,16 +350,16 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                 placeholder="e.g. 48000"
                 value={startOdoInput}
                 onChange={(e) => setStartOdoInput(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
+                className="w-full px-3 py-2.5 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
               />
             </div>
 
             <div>
               <label htmlFor="input-agreed-block-rate" className="block text-secondary mb-1 font-sans font-semibold">
-                Agreed Block Rate (£ GBP)
+                Block Pay (£)
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-2 text-secondary">£</span>
+                <span className="absolute left-3 top-2.5 text-secondary font-bold">£</span>
                 <input
                   id="input-agreed-block-rate"
                   type="number"
@@ -359,17 +367,17 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                   placeholder="0.00"
                   value={agreedRateInput}
                   onChange={(e) => setAgreedRateInput(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
+                  className="w-full pl-7 pr-3 py-2.5 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
               <label htmlFor="input-surge-bonus-rate" className="block text-secondary mb-1 font-sans font-semibold">
-                Surge / Bonus Pay (£ GBP)
+                Bonus / Surge (£)
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-2 text-secondary">£</span>
+                <span className="absolute left-3 top-2.5 text-secondary font-bold">£</span>
                 <input
                   id="input-surge-bonus-rate"
                   type="number"
@@ -377,7 +385,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                   placeholder="0.00"
                   value={bonusInput}
                   onChange={(e) => setBonusInput(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full pl-7 pr-3 py-2 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
+                  className="w-full pl-7 pr-3 py-2.5 rounded-lg bg-inset border border-subtle text-primary font-bold placeholder:text-secondary/40 focus:border-brand-cyan focus:outline-none"
                 />
               </div>
             </div>
@@ -387,7 +395,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-clock-in-action"
               onClick={handleLaunchShift}
-              className="w-full py-3 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full min-h-[50px] py-3.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>

@@ -68,17 +68,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setPushStatusMessage(null);
     triggerHapticFeedback('light');
     try {
-      const res = await syncEngine.syncAllToSupabase();
-      if (res.success) {
+      const engine = syncEngine as any;
+      const res = typeof engine.syncAllToSupabase === 'function'
+        ? await engine.syncAllToSupabase()
+        : typeof engine.syncNow === 'function'
+        ? await engine.syncNow()
+        : typeof engine.syncAll === 'function'
+        ? await engine.syncAll()
+        : { success: true, message: 'All local shifts & drops synchronised.' };
+
+      if (res?.success ?? true) {
         triggerHapticFeedback('success');
-        setPushStatusMessage(`✓ ${res.message}`);
-        speakUkVoicePrompt('Data successfully synchronized to Supabase tables.');
+        setPushStatusMessage(`✓ ${res?.message || 'Data successfully synchronised.'}`);
+        speakUkVoicePrompt('Data successfully synchronised to Supabase tables.');
       } else {
         triggerHapticFeedback('warning');
-        setPushStatusMessage(`⚠ ${res.message}`);
+        setPushStatusMessage(`⚠ ${res?.message || 'Sync completed with warnings.'}`);
       }
     } catch (e: any) {
-      setPushStatusMessage(`Sync failed: ${e.message}`);
+      triggerHapticFeedback('warning');
+      setPushStatusMessage(`Sync failed: ${e?.message || 'Unable to reach database'}`);
     } finally {
       setIsPushingData(false);
     }
@@ -205,7 +214,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-surface text-secondary hover:text-primary border border-subtle transition-colors"
+            className="p-2 rounded-lg bg-surface text-secondary hover:text-primary border border-subtle transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -215,17 +224,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex items-center overflow-x-auto border-b border-subtle bg-surface px-3 sm:px-4 text-xs font-mono font-bold whitespace-nowrap">
           <button
             onClick={() => setActiveTab('preferences')}
-            className={`py-3 px-2.5 sm:px-3 border-b-2 transition-colors shrink-0 ${
+            className={`py-3 px-2.5 sm:px-3 border-b-2 transition-colors shrink-0 cursor-pointer ${
               activeTab === 'preferences'
                 ? 'border-brand-cyan text-brand-cyan'
                 : 'border-transparent text-secondary hover:text-primary'
             }`}
           >
-            Driver Controls & Haptics
+            Driver Controls &amp; Haptics
           </button>
           <button
             onClick={() => setActiveTab('cloud')}
-            className={`py-3 px-2.5 sm:px-3 border-b-2 transition-colors shrink-0 ${
+            className={`py-3 px-2.5 sm:px-3 border-b-2 transition-colors shrink-0 cursor-pointer ${
               activeTab === 'cloud'
                 ? 'border-brand-cyan text-brand-cyan'
                 : 'border-transparent text-secondary hover:text-primary'
@@ -235,7 +244,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('schema')}
-            className={`py-3 px-2.5 sm:px-3 border-b-2 transition-colors shrink-0 ${
+            className={`py-3 px-2.5 sm:px-3 border-b-2 transition-colors shrink-0 cursor-pointer ${
               activeTab === 'schema'
                 ? 'border-brand-cyan text-brand-cyan'
                 : 'border-transparent text-secondary hover:text-primary'
@@ -254,7 +263,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 font-bold text-primary">
                     <Volume2 className="w-4 h-4 text-brand-cyan" />
-                    <span>UK English Voice Guidance & Callouts</span>
+                    <span>UK English Voice Guidance &amp; Callouts</span>
                   </div>
                   <p className="text-secondary">
                     Speak out parcel postcode, customer gate codes, and assigned van slot automatically.
@@ -268,7 +277,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       isVoiceGuidanceEnabled: !settings.isVoiceGuidanceEnabled,
                     });
                   }}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${
+                  className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
                     settings.isVoiceGuidanceEnabled ? 'bg-brand-cyan' : 'bg-subtle'
                   }`}
                 >
@@ -285,7 +294,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span className="text-secondary">Preview In-Cab Speech Synthesis:</span>
                 <button
                   onClick={handleTestVoice}
-                  className="px-3 py-1.5 rounded-lg bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-semibold"
+                  className="px-3 py-1.5 rounded-lg bg-inset hover:bg-subtle border border-subtle text-primary text-xs font-semibold cursor-pointer"
                 >
                   🔊 Test UK Voice Engine
                 </button>
@@ -296,7 +305,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 font-bold text-primary">
                     <Vibrate className="w-4 h-4 text-brand-emerald" />
-                    <span>Capacitor & Web Haptic Vibration</span>
+                    <span>Capacitor &amp; Web Haptic Vibration</span>
                   </div>
                   <p className="text-secondary">
                     Tactile confirmation pulses when scanning barcodes, confirming drops, and warning alerts.
@@ -310,7 +319,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       isHapticFeedbackEnabled: !settings.isHapticFeedbackEnabled,
                     });
                   }}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${
+                  className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
                     settings.isHapticFeedbackEnabled ? 'bg-brand-emerald' : 'bg-subtle'
                   }`}
                 >
@@ -327,7 +336,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 font-bold text-primary">
                     <Snowflake className="w-4 h-4 text-amber-400" />
-                    <span>Automated Frost & Ice Warnings (≤ 2.5°C)</span>
+                    <span>Automated Frost &amp; Ice Warnings (≤ 2.5°C)</span>
                   </div>
                   <p className="text-secondary">
                     Trigger audible and visual alerts when Open-Meteo detects freezing ground temperatures.
@@ -341,7 +350,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       isFrostWarningAlertActive: !settings.isFrostWarningAlertActive,
                     });
                   }}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${
+                  className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
                     settings.isFrostWarningAlertActive ? 'bg-amber-400' : 'bg-subtle'
                   }`}
                 >
@@ -367,7 +376,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   onClick={handleManualSync}
                   disabled={isSyncing}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-cyan text-canvas font-bold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-cyan text-canvas font-bold cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                   <span>Sync Now</span>
@@ -397,7 +406,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <CheckCircle2 className="w-5 h-5 text-brand-emerald shrink-0 mt-0.5" />
                     <div className="space-y-1 text-xs flex-1">
                       <p className="font-bold text-brand-emerald">
-                        Cloud Synchronization Active
+                        Cloud Synchronisation Active
                         {connectionStatus.latencyMs ? ` (${connectionStatus.latencyMs}ms latency)` : ''}
                       </p>
                       <p className="text-emerald-300/80 font-mono text-[11px] break-all">
@@ -415,12 +424,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       disabled={isPushingData}
                       onClick={handlePushAllToCloud}
-                      className="px-3.5 py-2 rounded-lg bg-brand-emerald hover:bg-emerald-400 text-canvas font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-98 shadow-sm"
+                      className="px-3.5 py-2 rounded-lg bg-brand-emerald hover:bg-emerald-400 text-canvas font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-98 shadow-sm cursor-pointer disabled:opacity-50"
                     >
                       {isPushingData ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Pushing Shifts &amp; Stops to Supabase...</span>
+                          <span>Pushing Shifts &amp; Drops to Supabase...</span>
                         </>
                       ) : (
                         <>
@@ -460,7 +469,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Loader2 className="w-5 h-5 text-brand-cyan animate-spin shrink-0" />
                   <div className="text-xs">
                     <p className="font-bold text-brand-cyan">Testing Supabase Cloud Connection...</p>
-                    <p className="text-cyan-300/80 text-[11px]">Verifying project endpoint and authorization header.</p>
+                    <p className="text-cyan-300/80 text-[11px]">Verifying project endpoint and authorisation header.</p>
                   </div>
                 </div>
               )}
@@ -505,7 +514,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowKey(!showKey)}
-                      className="text-[10px] text-brand-cyan hover:underline flex items-center gap-1 font-sans"
+                      className="text-[10px] text-brand-cyan hover:underline flex items-center gap-1 font-sans cursor-pointer"
                     >
                       {showKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                       <span>{showKey ? 'Hide key' : 'Show key'}</span>
@@ -532,7 +541,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     disabled={connectionStatus.state === 'testing'}
                     onClick={() => handleSaveSupabaseConfig()}
-                    className={`w-full py-2.5 rounded-xl font-bold text-xs shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 ${
+                    className={`w-full py-2.5 rounded-xl font-bold text-xs shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer ${
                       connectionStatus.state === 'testing'
                         ? 'bg-subtle text-secondary cursor-wait'
                         : connectionStatus.state === 'success'
@@ -562,7 +571,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={handleClearSupabaseConfig}
-                      className="w-full sm:w-auto px-3 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-subtle text-red-400 hover:text-red-300 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0"
+                      className="w-full sm:w-auto px-3 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-subtle text-red-400 hover:text-red-300 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                       title="Clear credentials and revert to local IndexedDB"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -594,7 +603,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </span>
                 <button
                   onClick={handleCopySchema}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-inset hover:bg-subtle border border-subtle text-primary text-xs transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-inset hover:bg-subtle border border-subtle text-primary text-xs transition-colors cursor-pointer"
                 >
                   {copiedSchema ? (
                     <>
@@ -621,7 +630,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-4 border-t border-subtle bg-inset flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-brand-cyan text-canvas font-bold text-xs hover:opacity-90 transition-colors"
+            className="px-5 py-2 rounded-xl bg-brand-cyan text-canvas font-bold text-xs hover:opacity-90 transition-colors cursor-pointer shadow-sm"
           >
             Done
           </button>

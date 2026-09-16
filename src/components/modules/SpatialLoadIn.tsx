@@ -151,12 +151,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
   const [manualGateCode, setManualGateCode] = useState('');
   const [manualInstructions, setManualInstructions] = useState('');
 
-  // Manifest Text State
-  const [manifestText, setManifestText] = useState('');
-  const [isParsingManifest, setIsParsingManifest] = useState(false);
-
   // LIFO (Reverse Order Loading) Calculation
-  // Stop #8 loaded first (deep bulkhead), Stop #1 loaded last (rear barn doors)
   const sortedStopsLIFO = [...stops].sort((a, b) => b.stopNumber - a.stopNumber);
 
   const filteredStops = sortedStopsLIFO.filter((stop) => {
@@ -170,12 +165,10 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
     return matchesSearch && matchesZone;
   });
 
-  // Calculate count per zone
   const getZoneCount = (zoneName: VanCompartmentZone) => {
     return stops.filter((s) => s.assignedZone === zoneName).length;
   };
 
-  // 1-Click OCR Scanner Simulation
   const handleSimulateOCRScan = () => {
     setIsSimulatingScanner(true);
     triggerHapticFeedback('medium');
@@ -185,7 +178,6 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
       const sampleNames = ['Amelia Clark', 'David Sterling', 'Hannah Wright', 'Tariq Hussain', 'Gemma Davies'];
       const sampleStreets = ['42 Oxford Road', '18 Deansgate', '9 Chester Road', '87 Wilmslow Road'];
 
-      // Assign zone intelligently based on stop sequence
       let assignedZone: VanCompartmentZone = 'Rear Fast-Access Zone';
       if (nextStopNum > 6) assignedZone = 'Bulkhead Lower';
       else if (nextStopNum > 4) assignedZone = 'Left Shelf Mid';
@@ -217,7 +209,6 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
     }, 1100);
   };
 
-  // Manual Add Form Submit
   const handleSaveManualParcel = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualName.trim() || !manualAddress.trim()) return;
@@ -246,71 +237,12 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
       `Added Stop #${nextStopNum}: ${newParcel.recipientName}. Loaded to ${manualZone}.`
     );
 
-    // Reset Form
     setManualName('');
     setManualAddress('');
     setManualPostcode('');
     setManualGateCode('');
     setManualInstructions('');
     setIsAddModalOpen(false);
-  };
-
-  // Import Manifest & Auto-Allocate
-  const handleImportManifest = () => {
-    setIsParsingManifest(true);
-    triggerHapticFeedback('medium');
-
-    setTimeout(() => {
-      const sampleStopsToAdd = [
-        {
-          recipientName: 'Oliver Vance',
-          addressLine1: '14 Portland Street',
-          postcode: 'M1 3BE',
-          size: 'Standard Box' as ParcelSize,
-          zone: 'Bulkhead Lower' as VanCompartmentZone,
-        },
-        {
-          recipientName: 'Sarah Jenkins',
-          addressLine1: '99 Princess Street',
-          postcode: 'M1 4HT',
-          size: 'Small Envelope' as ParcelSize,
-          zone: 'Passenger Footwell' as VanCompartmentZone,
-        },
-        {
-          recipientName: 'Liam Gallagher',
-          addressLine1: '25 Whitworth Street',
-          postcode: 'M1 5NG',
-          size: 'Large Parcel' as ParcelSize,
-          zone: 'Sliding Door Zone' as VanCompartmentZone,
-        },
-      ];
-
-      sampleStopsToAdd.forEach((sample, idx) => {
-        const nextNum = stops.length + idx + 1;
-        onAddScannedParcel({
-          id: `manifest_${Date.now()}_${idx}`,
-          stopNumber: nextNum,
-          trackingBarcode: `MFST-${Math.floor(10000000 + Math.random() * 90000000)}`,
-          recipientName: sample.recipientName,
-          addressLine1: sample.addressLine1,
-          townCity: 'Manchester',
-          postcode: sample.postcode,
-          parcelSize: sample.size,
-          assignedZone: sample.zone,
-          status: 'Pending',
-          latitude: 53.48 + (Math.random() - 0.5) * 0.04,
-          longitude: -2.24 + (Math.random() - 0.5) * 0.04,
-          customerInstructions: 'Imported from carrier dispatch manifest.',
-        });
-      });
-
-      setIsParsingManifest(false);
-      setIsManifestModalOpen(false);
-      triggerHapticFeedback('success');
-      speakUkVoicePrompt(
-        `Carrier manifest processed. Added ${sampleStopsToAdd.length} stops with reverse LIFO vehicle guidance.`
-      );
-    }, 1200);
   };
 
   return (
@@ -321,30 +253,29 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/30 font-bold">
-                LIFO Spatial Algorithm
+                Smart Van Load Map
               </span>
               <span className="text-[10px] font-mono text-secondary">
-                Last-In, First-Out Optimization
+                Reverse Delivery Order (LIFO)
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-primary font-mono flex items-center gap-2">
-              Spatial Van Load-In Organiser
+              Van Parcel Map
             </h1>
             <p className="text-xs text-secondary max-w-xl">
-              Load highest stop numbers against the front bulkhead first, ensuring Stop #1 remains immediately accessible at the rear doors without digging through cargo.
+              Assign parcel drops to front, mid, and rear van load zones so Stop #1 stays right at the rear doors without unstacking cargo.
             </p>
           </div>
 
-          {/* Action Buttons: Add Parcel & Scan Manifest */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <button
               id="btn-open-manual-add-parcel"
               onClick={() => setIsAddModalOpen(true)}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-cyan/40 text-brand-cyan text-xs font-bold transition-all shadow-md active:scale-95 whitespace-nowrap"
-              title="Manually add item to vehicle"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-cyan/40 text-brand-cyan text-xs font-bold transition-all shadow-md active:scale-95 whitespace-nowrap cursor-pointer touch-manipulation"
+              title="Manually add parcel to vehicle"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Add Item</span>
+              <span>+ Add Parcel</span>
             </button>
 
             <button
@@ -353,33 +284,33 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                 setIsManifestModalOpen(true);
                 triggerHapticFeedback('light');
               }}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-emerald/40 text-brand-emerald text-xs font-bold transition-all shadow-md active:scale-95 whitespace-nowrap"
-              title="Camera Manifest OCR (Snapshot to Stops)"
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-inset hover:bg-subtle border border-brand-emerald/40 text-brand-emerald text-xs font-bold transition-all shadow-md active:scale-95 whitespace-nowrap cursor-pointer touch-manipulation"
+              title="Camera Manifest Scanner"
             >
               <Camera className="w-4 h-4" />
-              <span>Camera Manifest OCR</span>
+              <span>Scan Sheet OCR</span>
             </button>
 
             <button
               id="btn-scan-label-ocr"
               onClick={handleSimulateOCRScan}
               disabled={isSimulatingScanner}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-black shadow-lg hover:opacity-95 transition-all active:scale-95 whitespace-nowrap"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas text-xs font-black shadow-lg hover:opacity-95 transition-all active:scale-95 whitespace-nowrap cursor-pointer touch-manipulation"
             >
               <Camera className="w-4 h-4" />
-              <span>{isSimulatingScanner ? 'Scanning OCR...' : 'Scan Label OCR'}</span>
+              <span>{isSimulatingScanner ? 'Scanning...' : 'Scan Parcel Barcode'}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Interactive 2D Van Layout / Spatial Blueprint */}
+      {/* Interactive Van Blueprint */}
       <div className="bg-surface border border-subtle rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
         <div className="flex items-center justify-between border-b border-subtle pb-3">
           <div className="flex items-center gap-2">
             <Truck className="w-4 h-4 text-brand-cyan" />
             <span className="text-xs font-mono font-bold text-primary uppercase tracking-wider">
-              Interactive In-Cab Cargo Blueprint ({selectedLayout.split('(')[0]})
+              Van Load Zones ({selectedLayout.split('(')[0]})
             </span>
           </div>
           <span className="text-[11px] font-mono text-brand-emerald font-semibold">
@@ -387,15 +318,13 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
           </span>
         </div>
 
-        {/* 2D Van Blueprint Grid */}
         <div className="bg-inset border-2 border-subtle rounded-2xl p-4 sm:p-6 relative">
-          {/* Directional Header: Front Cab -> Rear Barn Doors */}
           <div className="flex items-center justify-between text-[10px] font-mono text-secondary uppercase mb-3 px-1 border-b border-subtle/60 pb-2">
             <span className="flex items-center gap-1 text-indigo-400 font-bold">
-              ⬆ FRONT: DRIVER CABIN & BULKHEAD (LOAD FIRST - LIFO)
+              ⬆ FRONT CABIN &amp; BULKHEAD (FINAL DROPS)
             </span>
             <span className="flex items-center gap-1 text-brand-cyan font-bold">
-              ⬇ REAR: TAILGATE / BARN DOORS (LOAD LAST)
+              ⬇ REAR BARN DOORS (FIRST DROPS)
             </span>
           </div>
 
@@ -447,7 +376,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
         </div>
       </div>
 
-      {/* Vehicle Layout Selector */}
+      {/* Vehicle Profile Selector */}
       <div className="bg-surface border border-subtle rounded-2xl p-4 shadow-xl space-y-3">
         <div className="flex items-center gap-2 border-b border-subtle pb-2 text-xs font-mono font-bold text-primary uppercase">
           <Truck className="w-4 h-4 text-brand-cyan" />
@@ -463,7 +392,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                   setSelectedLayout(layout.type);
                   triggerHapticFeedback('light');
                 }}
-                className={`p-3 rounded-xl border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-brand-cyan/15 border-brand-cyan text-primary shadow-md'
                     : 'bg-inset border-subtle text-secondary hover:text-primary'
@@ -493,7 +422,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
             <input
               id="input-loadin-search"
               type="text"
-              placeholder="Search parcel by recipient, UK postcode, address or barcode..."
+              placeholder="Search parcel by customer, UK postcode, street, or barcode..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-8 py-2 rounded-xl bg-inset border border-subtle text-xs text-primary placeholder-[#8F9CAE] focus:border-brand-cyan focus:outline-none font-mono"
@@ -504,7 +433,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                   setSearchQuery('');
                   triggerHapticFeedback('light');
                 }}
-                className="absolute right-2.5 top-2.5 text-secondary hover:text-primary"
+                className="absolute right-2.5 top-2.5 text-secondary hover:text-primary cursor-pointer"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -520,7 +449,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                 triggerHapticFeedback('light');
                 setSelectedZoneFilter((prev) => (prev === 'all' ? COMPARTMENT_ZONES[0].zone : 'all'));
               }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-mono font-bold transition-all shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-mono font-bold transition-all shrink-0 cursor-pointer ${
                 selectedZoneFilter !== 'all'
                   ? 'bg-brand-cyan/15 border-brand-cyan text-brand-cyan'
                   : 'bg-inset border-subtle text-secondary hover:text-primary'
@@ -555,7 +484,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                   setSearchQuery('');
                   triggerHapticFeedback('light');
                 }}
-                className="px-2.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-xs font-mono text-brand-cyan font-bold shrink-0 whitespace-nowrap"
+                className="px-2.5 py-2 rounded-xl bg-inset hover:bg-subtle border border-subtle text-xs font-mono text-brand-cyan font-bold shrink-0 whitespace-nowrap cursor-pointer"
               >
                 Reset
               </button>
@@ -570,7 +499,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
               setSelectedZoneFilter('all');
               triggerHapticFeedback('light');
             }}
-            className={`px-2.5 py-1 rounded-lg border transition-all whitespace-nowrap shrink-0 ${
+            className={`px-2.5 py-1 rounded-lg border transition-all whitespace-nowrap shrink-0 cursor-pointer ${
               selectedZoneFilter === 'all'
                 ? 'bg-brand-cyan text-canvas font-bold border-brand-cyan'
                 : 'bg-inset border-subtle text-secondary hover:text-primary'
@@ -588,7 +517,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                   setSelectedZoneFilter(isSelected ? 'all' : z.zone);
                   triggerHapticFeedback('light');
                 }}
-                className={`px-2.5 py-1 rounded-lg border transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg border transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   isSelected
                     ? 'bg-brand-cyan text-canvas font-bold border-brand-cyan'
                     : 'bg-inset border-subtle text-secondary hover:text-primary'
@@ -608,12 +537,12 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
         </div>
       </div>
 
-      {/* Reverse-Order (LIFO) Loading Manifest Cards */}
+      {/* Loading Manifest Cards */}
       <div className="space-y-3">
         <div className="flex items-center justify-between text-xs font-mono text-secondary px-1">
           <div className="flex items-center gap-1.5">
             <ArrowDownUp className="w-3.5 h-3.5 text-brand-cyan" />
-            <span>Optimal Loading Order (LIFO: Bulkhead → Sliding Door → Rear Barn Doors)</span>
+            <span>Optimal Pack Order (Bulkhead → Sliding Door → Rear Barn Doors)</span>
           </div>
           <span>Showing {filteredStops.length} Parcels</span>
         </div>
@@ -631,7 +560,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                 setSearchQuery('');
                 triggerHapticFeedback('light');
               }}
-              className="px-4 py-2 rounded-xl bg-brand-cyan text-canvas font-bold text-xs font-mono shadow-md hover:opacity-90 transition-all"
+              className="px-4 py-2 rounded-xl bg-brand-cyan text-canvas font-bold text-xs font-mono shadow-md hover:opacity-90 transition-all cursor-pointer"
             >
               Reset All Filters
             </button>
@@ -685,24 +614,22 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                     </div>
                   </div>
 
-                  {/* Loading Advice Tag */}
                   <div className="p-2.5 rounded-xl bg-inset border border-subtle flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 text-xs font-mono">
                     <span className="text-secondary text-[10px] uppercase font-bold tracking-wider">
                       {isFirstDrop
-                        ? '⚡ LOAD LAST: Rear Barn Door'
+                        ? '⚡ LOAD LAST: Rear Barn Doors'
                         : isLastDrop
                         ? '📦 LOAD FIRST: Deep Bulkhead'
-                        : `Load Step #${index + 1}`}
+                        : `Pack Step #${index + 1}`}
                     </span>
                     <span className="text-primary font-bold text-[11px] truncate">
                       {stop.trackingBarcode}
                     </span>
                   </div>
 
-                  {/* Assigned Van Zone Selector */}
                   <div className="space-y-1.5">
                     <label className="block text-[10px] uppercase font-mono font-bold text-secondary">
-                      Assign Van Compartment Zone:
+                      Assign Van Load Zone:
                     </label>
                     <select
                       value={stop.assignedZone}
@@ -710,7 +637,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                         triggerHapticFeedback('light');
                         onUpdateParcelZone(stop.id, e.target.value as VanCompartmentZone);
                       }}
-                      className="w-full px-3 py-2 rounded-xl bg-inset border border-subtle text-xs text-primary font-semibold focus:border-brand-cyan focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-inset border border-subtle text-xs text-primary font-semibold focus:border-brand-cyan focus:outline-none cursor-pointer"
                     >
                       {COMPARTMENT_ZONES.map((z) => (
                         <option key={z.zone} value={z.zone}>
@@ -736,7 +663,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
       {isAddModalOpen && (
         <div
           id="modal-manual-add-parcel"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
           onClick={() => setIsAddModalOpen(false)}
         >
           <div
@@ -747,12 +674,12 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
               <div className="flex items-center gap-2">
                 <Plus className="w-5 h-5 text-brand-cyan" />
                 <h2 className="text-base font-bold text-primary font-mono">
-                  Add Parcel to Vehicle Hold
+                  Add Parcel to Van Load
                 </h2>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-lg text-secondary hover:text-primary hover:bg-subtle"
+                className="p-1 rounded-lg text-secondary hover:text-primary hover:bg-subtle cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -810,7 +737,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                   <select
                     value={manualSize}
                     onChange={(e) => setManualSize(e.target.value as ParcelSize)}
-                    className="w-full px-3 py-2 rounded-xl bg-inset border border-subtle text-xs text-primary focus:border-brand-cyan focus:outline-none font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-inset border border-subtle text-xs text-primary focus:border-brand-cyan focus:outline-none font-mono cursor-pointer"
                   >
                     <option value="Small Envelope">Small Envelope</option>
                     <option value="Standard Box">Standard Box</option>
@@ -826,7 +753,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                   <select
                     value={manualZone}
                     onChange={(e) => setManualZone(e.target.value as VanCompartmentZone)}
-                    className="w-full px-3 py-2 rounded-xl bg-inset border border-subtle text-xs text-primary focus:border-brand-cyan focus:outline-none font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-inset border border-subtle text-xs text-primary focus:border-brand-cyan focus:outline-none font-mono cursor-pointer"
                   >
                     {COMPARTMENT_ZONES.map((z) => (
                       <option key={z.zone} value={z.zone}>
@@ -869,15 +796,15 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-inset text-slate-300 text-xs font-bold hover:bg-subtle"
+                  className="px-4 py-2 rounded-xl bg-inset text-slate-300 text-xs font-bold hover:bg-subtle cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-brand-cyan text-canvas text-xs font-bold hover:bg-brand-cyan/90 shadow-md"
+                  className="px-5 py-2 rounded-xl bg-brand-cyan text-canvas text-xs font-bold hover:bg-brand-cyan/90 shadow-md cursor-pointer"
                 >
-                  Save & Assign Zone
+                  Save &amp; Assign Zone
                 </button>
               </div>
             </form>
@@ -885,7 +812,7 @@ export const SpatialLoadIn: React.FC<SpatialLoadInProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: Camera Manifest OCR Scanner (Snapshot to Stops) */}
+      {/* MODAL 2: Camera Manifest OCR Scanner */}
       <CameraManifestScannerModal
         isOpen={isManifestModalOpen}
         onClose={() => setIsManifestModalOpen(false)}

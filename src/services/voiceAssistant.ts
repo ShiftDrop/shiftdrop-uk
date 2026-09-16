@@ -1,7 +1,7 @@
 /**
  * ShiftDrop - Advanced UK Voice Assistant Engine (Web Speech API)
  * Zero API Keys / 100% Free Native Browser Speech Recognition & Synthesis
- * Optimized for UK English accents and in-cab hands-free driving workflows.
+ * Optimised for UK English accents and in-cab hands-free driving workflows.
  */
 
 import { ParcelStop, ActiveShift, HMRCTaxCalculations } from '../types';
@@ -23,7 +23,6 @@ export type VoiceStateChangeCallback = (state: {
   error?: string;
 }) => void;
 
-// Web Speech Recognition Type Polyfill
 interface IWindow extends Window {
   SpeechRecognition?: any;
   webkitSpeechRecognition?: any;
@@ -54,7 +53,7 @@ class UkVoiceAssistantService {
       this.recognition = new SpeechRecognition();
       this.recognition.continuous = true;
       this.recognition.interimResults = true;
-      this.recognition.lang = 'en-GB'; // Strict UK English
+      this.recognition.lang = 'en-GB';
       this.recognition.maxAlternatives = 1;
 
       this.recognition.onstart = () => {
@@ -178,7 +177,6 @@ class UkVoiceAssistantService {
 
     const pendingStops = context.stops.filter((s) => s.status === 'Pending');
     const deliveredCount = context.stops.filter((s) => s.status === 'Delivered').length;
-    const returnedCount = context.stops.filter((s) => s.status === 'Returned').length;
     const totalCount = context.stops.length;
 
     // 1. Earnings Query
@@ -213,7 +211,7 @@ class UkVoiceAssistantService {
       intent = 'route_summary';
       const remaining = pendingStops.length;
       const nextPostcode = context.currentStop?.postcode || 'No pending stops';
-      const estMinutes = remaining * 3.5; // ~3.5 min per drop estimate
+      const estMinutes = remaining * 3.5;
       const estHours = Math.floor(estMinutes / 60);
       const estMins = Math.round(estMinutes % 60);
       const timeStr = estHours > 0 ? `${estHours} hours and ${estMins} minutes` : `${estMins} minutes`;
@@ -304,7 +302,6 @@ class UkVoiceAssistantService {
       spokenResponse = `I heard: "${text}". You can ask: "What are my earnings?", "Give me a route summary", "What's the gate code?", or "Confirm drop".`;
     }
 
-    // Speak British auditory response
     speakUkVoicePrompt(spokenResponse, true);
     triggerHapticFeedback('success');
 
