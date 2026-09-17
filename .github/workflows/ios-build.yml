@@ -25,10 +25,8 @@ jobs:
       - name: Build Web Assets
         run: npx vite build
 
-      - name: Add iOS Platform & Sync
-        run: |
-          npx cap add ios
-          npx cap sync ios
+      - name: Sync iOS Platform
+        run: npx cap sync ios
 
       - name: Build Xcode Project
         run: |
