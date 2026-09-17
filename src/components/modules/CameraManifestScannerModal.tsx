@@ -380,7 +380,7 @@ export const CameraManifestScannerModal: React.FC<CameraManifestScannerModalProp
                   />
                   {/* Laser Scanning Effect */}
                   {isScanningOCR && (
-                    <div className="absolute inset-0 bg-gradient-to-b from-brand-emerald/20 via-transparent to-transparent animate-pulse flex flex-col justify-center items-center">
+                    <div className="absolute inset-0 bg-linear-to-b from-brand-emerald/20 via-transparent to-transparent animate-pulse flex flex-col justify-center items-center">
                       <div className="w-full h-1 bg-brand-emerald shadow-lg shadow-emerald-500 animate-bounce" />
                       <span className="mt-4 px-3 py-1 rounded-full bg-black/80 text-brand-emerald font-bold text-xs border border-brand-emerald/40 flex items-center gap-1.5">
                         <ScanLine className="w-4 h-4 animate-spin" />
@@ -537,7 +537,7 @@ export const CameraManifestScannerModal: React.FC<CameraManifestScannerModalProp
                 type="button"
                 onClick={handleConfirmImportAll}
                 disabled={scannedStops.length === 0}
-                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#10B981] to-brand-cyan text-canvas font-black text-xs hover:opacity-95 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-linear-to-r from-brand-emerald to-brand-cyan text-canvas font-black text-xs hover:opacity-95 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
               >
                 <Truck className="w-4 h-4" />
                 <span>Import All {scannedStops.length} Stops to Van</span>

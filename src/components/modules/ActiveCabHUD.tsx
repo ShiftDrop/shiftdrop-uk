@@ -452,7 +452,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                               </p>
                             )}
 
-                            <p className="text-xs text-slate-200 leading-relaxed font-sans break-words">
+                            <p className="text-xs text-slate-200 leading-relaxed font-sans wrap-break-word">
                               {matchingIntel.instructionNotes}
                             </p>
                           </div>
@@ -489,7 +489,7 @@ export const ActiveCabHUD: React.FC<ActiveCabHUDProps> = ({
                     <span className="text-[10px] text-secondary block uppercase font-mono">
                       Drop Instructions
                     </span>
-                    <p className="text-xs leading-tight mt-1 text-slate-200 italic break-words">
+                    <p className="text-xs leading-tight mt-1 text-slate-200 italic wrap-break-word">
                       "{currentStop.customerInstructions || 'Leave in secure porch if no answer. Ring bell twice.'}"
                     </p>
                   </div>

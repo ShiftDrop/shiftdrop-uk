@@ -60,7 +60,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({ isOpen
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       {/* Header */}
-      <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between z-10 bg-gradient-to-b from-black/80 to-transparent">
+      <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between z-10 bg-linear-to-b from-black/80 to-transparent">
         <h2 className="text-white font-bold font-mono text-sm tracking-wider uppercase flex items-center gap-2">
           <ScanLine className="w-4 h-4" />
           Smart Receipt OCR

@@ -156,7 +156,7 @@ export const ProUpgrade: React.FC<ProUpgradeProps> = ({ onUpgradeComplete }) => 
           type="button"
           onClick={handleCheckout}
           disabled={loading}
-          className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+          className="w-full py-3.5 px-4 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-canvas/30 border-t-canvas rounded-full animate-spin" />

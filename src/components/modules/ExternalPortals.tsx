@@ -98,7 +98,7 @@ export const ExternalPortals: React.FC<ExternalPortalsProps> = ({
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 pt-4">
                 <button
                   onClick={onReturnToApp}
-                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-brand-cyan to-[#10B981] text-canvas font-black text-sm shadow-xl shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-95 flex items-center gap-2"
+                  className="px-6 py-3 rounded-2xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm shadow-xl shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-95 flex items-center gap-2"
                 >
                   <Smartphone className="w-5 h-5" />
                   <span>Launch Web & In-Cab App</span>

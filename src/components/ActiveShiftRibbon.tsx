@@ -169,7 +169,7 @@ export const ActiveShiftRibbon: React.FC<ActiveShiftRibbonProps> = ({
         </div>
 
         {/* TABLET & DESKTOP VIEW (>= 640px): 1-Row Horizontal Streamlined Ribbon */}
-        <div className="hidden sm:flex items-center px-4 sm:px-6 py-2 min-h-[52px] justify-between gap-4 text-sm">
+        <div className="hidden sm:flex items-center px-4 sm:px-6 py-2 min-h-13 justify-between gap-4 text-sm">
           {/* Left Metrics */}
           <div className="flex items-center gap-4 lg:gap-6 shrink-0">
             <div className="flex items-center gap-2 shrink-0">

@@ -325,7 +325,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
                       setSelectedNetwork(net);
                       triggerHapticFeedback('light');
                     }}
-                    className={`shrink-0 min-w-[120px] min-h-[52px] px-4 py-2.5 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer touch-manipulation active:scale-95 flex items-center justify-center ${
+                    className={`shrink-0 min-w-30 min-h-13 px-4 py-2.5 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer touch-manipulation active:scale-95 flex items-center justify-center ${
                       isSelected
                         ? 'bg-brand-cyan text-canvas border-brand-cyan shadow-lg shadow-cyan-500/25'
                         : 'bg-inset border-subtle text-secondary hover:text-primary hover:border-brand-cyan/40'
@@ -395,7 +395,7 @@ export const InCabHomeHub: React.FC<InCabHomeHubProps> = ({
             <button
               id="btn-clock-in-action"
               onClick={handleLaunchShift}
-              className="w-full min-h-[50px] py-3.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
+              className="w-full min-h-12.5 py-3.5 rounded-xl bg-linear-to-r from-brand-cyan to-brand-emerald text-canvas font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>
