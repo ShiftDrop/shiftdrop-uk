@@ -17,8 +17,10 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install Dependencies
-        run: npm install --no-optional --legacy-peer-deps
+      - name: Clean Install Without Lockfile Constraints
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --install-links
 
       - name: Build Web Assets
         run: npx vite build
