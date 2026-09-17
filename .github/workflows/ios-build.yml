@@ -21,10 +21,9 @@ jobs:
         run: |
           rm -rf node_modules package-lock.json
           npm install --legacy-peer-deps
+          npm install @tailwindcss/oxide-darwin-arm64 @tailwindcss/oxide-darwin-x64 --no-save
 
       - name: Build Web Assets
-        env:
-          TAILWIND_DISABLE_OXIDE: "true"
         run: npx vite build
 
       - name: Add iOS Platform & Sync
