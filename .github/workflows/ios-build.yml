@@ -18,7 +18,10 @@ jobs:
           node-version: 18
 
       - name: Install Dependencies
-        run: npm install --force
+        run: npm install --include=optional --force
+
+      - name: Rebuild Native Modules
+        run: npm rebuild
 
       - name: Build Web Assets
         run: npx vite build
