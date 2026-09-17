@@ -17,12 +17,14 @@ jobs:
         with:
           node-version: 18
 
-      - name: Clean Install Without Lockfile Constraints
+      - name: Install Dependencies
         run: |
           rm -rf node_modules package-lock.json
-          npm install --install-links
+          npm install --legacy-peer-deps
 
       - name: Build Web Assets
+        env:
+          TAILWIND_DISABLE_OXIDE: "true"
         run: npx vite build
 
       - name: Add iOS Platform & Sync
