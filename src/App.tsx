@@ -40,6 +40,7 @@ import { VoiceAssistantHUD } from './components/VoiceAssistantHUD';
 import { ShareWorkstationModal } from './components/ShareWorkstationModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AppSplashScreen } from './components/AppSplashScreen';
+import { useShiftStore } from './stores/shiftStore';
 import {
   saveParcelStopsToSupabase,
   saveShiftToSupabase,
@@ -68,6 +69,12 @@ const getScopedKey = (key: string, userId?: string) => {
 export default function App() {
   const [userProfile, setUserProfile] = useState<UserSessionProfile | null>(null);
   const [activeModule, setActiveModule] = useState<ActiveModuleId>('auth');
+
+  // Hydrate local offline Zustand store on startup
+  const loadShifts = useShiftStore((state) => state.loadShifts);
+  useEffect(() => {
+    loadShifts();
+  }, [loadShifts]);
 
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [newPasswordInput, setNewPasswordInput] = useState('');
