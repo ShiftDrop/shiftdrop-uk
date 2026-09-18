@@ -54,6 +54,7 @@
     padding-right: var(--safe-right);
     min-height: 100vh;
     min-height: -webkit-fill-available;
+    overscroll-behavior-y: none;
   }
 }
 
