@@ -41,6 +41,7 @@ import { ShareWorkstationModal } from './components/ShareWorkstationModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AppSplashScreen } from './components/AppSplashScreen';
 import { useShiftStore } from './stores/shiftStore';
+import { useRealtimeSync } from './hooks/useRealtimeSync';
 import {
   saveParcelStopsToSupabase,
   saveShiftToSupabase,
@@ -75,6 +76,9 @@ export default function App() {
   useEffect(() => {
     loadShifts();
   }, [loadShifts]);
+
+  // Activate real-time background sync listener
+  useRealtimeSync(userProfile?.id);
 
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [newPasswordInput, setNewPasswordInput] = useState('');
